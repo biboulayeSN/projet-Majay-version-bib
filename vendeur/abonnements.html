@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Abonnements - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
     <link rel="stylesheet" href="../css/dashboard.css">
     <style>
         .dashboard-page { background: #f7fafc; }
@@ -85,7 +86,7 @@
                     <p><strong>Prix:</strong> ${planDetails?.annual_price ? (planDetails.annual_price / 1000).toLocaleString() + ' FCFA/an' : 'Gratuit'}</p>
                     <p><strong>Produits max:</strong> ${planDetails?.max_products === -1 ? 'Illimité' : planDetails?.max_products}</p>
                     ${plan.expires_at ? `<p><strong>Expire le:</strong> ${new Date(plan.expires_at).toLocaleDateString('fr-FR')}</p>` : ''}
-                    <button onclick="upgradePlan()" class="btn-primary" style="margin-top: 20px;">🚀 Passer au plan supérieur</button>
+                    <button onclick="upgradePlan()" class="btn btn-primary btn-lg" style="margin-top: 30px; width: 100%; font-size: 1.1em; padding: 18px 30px; min-height: 60px;">🚀 Passer au plan supérieur</button>
                 `;
             } catch (error) {
                 console.error(error);

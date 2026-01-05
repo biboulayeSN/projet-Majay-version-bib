@@ -7,18 +7,18 @@
 
 /* ==================== RESET & BASE ==================== */
 body {
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 50%, var(--color-secondary) 100%);
     min-height: 100vh;
     padding-bottom: 100px;
 }
 
 /* ==================== HEADER ==================== */
 .header {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
     color: white;
     padding: 40px 20px;
     text-align: center;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 20px rgba(7, 94, 84, 0.3);
 }
 
 .header-content {
@@ -58,7 +58,7 @@ body {
 }
 
 .categories::-webkit-scrollbar-thumb {
-    background: #667eea;
+    background: var(--color-primary);
     border-radius: 10px;
 }
 
@@ -79,12 +79,12 @@ body {
 
 .category-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(7, 94, 84, 0.3);
+    border-color: var(--color-primary);
 }
 
 .category-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
     color: white;
     border-color: transparent;
 }
@@ -135,7 +135,7 @@ body {
 
 .product-category {
     display: inline-block;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
     color: white;
     padding: 6px 14px;
     border-radius: 20px;
@@ -178,7 +178,7 @@ body {
 }
 
 .add-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
     color: white;
     border: none;
     padding: 12px 24px;
@@ -190,7 +190,7 @@ body {
 
 .add-btn:hover {
     transform: scale(1.08);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 6px 20px rgba(7, 94, 84, 0.4);
 }
 
 .add-btn:active {

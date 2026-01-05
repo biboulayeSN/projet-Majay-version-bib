@@ -39,7 +39,7 @@
 .dashboard-logo {
     font-size: var(--font-size-2xl);
     font-weight: 900;
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -88,7 +88,7 @@
     left: 0;
     width: 4px;
     height: 100%;
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
 }
 
 .stat-card:hover {
@@ -328,7 +328,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 50%, var(--color-secondary) 100%);
     padding: var(--spacing-lg);
     position: relative;
     overflow: hidden;
@@ -379,6 +379,24 @@
     padding: var(--spacing-xl);
     box-shadow: var(--shadow-xl);
     animation: slideUp var(--transition-base);
+    width: 100%;
+    max-width: 480px;
+}
+
+.auth-card .btn-primary {
+    width: 100%;
+    padding: var(--spacing-lg) var(--spacing-xl);
+    font-size: var(--font-size-lg);
+    min-height: 56px;
+    font-weight: 700;
+    margin-top: var(--spacing-md);
+}
+
+.auth-card .btn-secondary {
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: var(--font-size-base);
+    min-height: 48px;
 }
 
 .auth-card h2 {
