@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Commercial - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #1a5490 0%, #2d7fc4 100%);
+            color: white;
+        }
+        .admin-nav a { color: white; }
+        .admin-nav a.active { background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header admin-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">💼 ADMIN COMMERCIAL</div>
+            <nav class="dashboard-nav admin-nav">
+                <a href="commercial.html" class="nav-link active">👥 Vendeurs</a>
+                <a href="commercial-stores.html" class="nav-link">🏪 Boutiques</a>
+            </nav>
+            <button onclick="deconnexionAdmin()" class="btn btn-outline btn-sm" style="color: white; border-color: rgba(255,255,255,0.3);">🚪 Déconnexion</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Gestion des Vendeurs Propriétaires</h1>
+                <p class="page-subtitle">Gérer les vendeurs et leurs boutiques</p>
+            </div>
+        </div>
+
+        <div class="filters-bar">
+            <input type="text" class="search-input" id="searchInput" placeholder="Rechercher un vendeur...">
+            <select class="filter-select" id="statusFilter">
+                <option value="">Tous les statuts</option>
+                <option value="active">Actifs</option>
+                <option value="inactive">Inactifs</option>
+            </select>
+            <select class="filter-select" id="planFilter">
+                <option value="">Tous les plans</option>
+                <option value="free">Free</option>
+                <option value="pro">Pro</option>
+                <option value="entreprise">Entreprise</option>
+            </select>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div style="overflow-x: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Nom</th>
+                                <th>Téléphone</th>
+                                <th>Boutique</th>
+                                <th>Plan</th>
+                                <th>Statut</th>
+                                <th>Commandes</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vendorsTable">
+                            <tr><td colspan="7" style="text-align: center; padding: 40px;">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from "../js/config.js";
+        import { adminAuth } from "../js/admin-auth.js";
+        import { adminRoles, requirePermission } from "../js/admin-roles.js";
+        import { showSuccess, showError } from "../js/notifications.js";
+
+        const session = adminRoles.getAdminSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        // Vérifier les permissions
+        const hasAccess = await requirePermission('view_vendors');
+        if (!hasAccess) return;
+
+        window.deconnexionAdmin = () => adminAuth.deconnexionAdmin();
+
+        async function chargerVendeurs() {
+            try {
+                const { data: vendors, error } = await supabase
+                    .from('users')
+                    .select(`
+                        id,
+                        phone,
+                        email,
+                        full_name,
+                        is_active,
+                        stores (
+                            id,
+                            name,
+                            slug,
+                            subscription_plan,
+                            total_orders,
+                            is_active
+                        )
+                    `)
+                    .eq('role_type', 'owner')
+                    .is('admin_role', null)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!vendors || vendors.length === 0) {
+                    document.getElementById('vendorsTable').innerHTML = `
+                        <tr><td colspan="7" class="empty-state">
+                            <div class="empty-state-icon">👥</div>
+                            <h3>Aucun vendeur</h3>
+                        </td></tr>
+                    `;
+                    return;
+                }
+
+                document.getElementById('vendorsTable').innerHTML = vendors.map(vendor => {
+                    const store = vendor.stores && vendor.stores.length > 0 ? vendor.stores[0] : null;
+                    const plan = store?.subscription_plan || 'free';
+                    
+                    return `
+                        <tr>
+                            <td><strong>${vendor.full_name || 'N/A'}</strong></td>
+                            <td>${vendor.phone}</td>
+                            <td>${store ? store.name : 'Aucune boutique'}</td>
+                            <td><span class="badge badge-${plan}">${plan.toUpperCase()}</span></td>
+                            <td>
+                                <span class="badge ${vendor.is_active ? 'badge-success' : 'badge-danger'}">
+                                    ${vendor.is_active ? 'Actif' : 'Inactif'}
+                                </span>
+                            </td>
+                            <td>${store?.total_orders || 0}</td>
+                            <td>
+                                <button onclick="toggleVendor('${vendor.id}', ${!vendor.is_active})" 
+                                        class="btn btn-sm ${vendor.is_active ? 'btn-danger' : 'btn-success'}">
+                                    ${vendor.is_active ? 'Désactiver' : 'Activer'}
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        }
+
+        window.toggleVendor = async function(userId, isActive) {
+            if (!await requirePermission('activate_vendors')) return;
+            
+            try {
+                const { error } = await supabase
+                    .from('users')
+                    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+                    .eq('id', userId);
+
+                if (error) throw error;
+                showSuccess(`Vendeur ${isActive ? 'activé' : 'désactivé'} avec succès`);
+                chargerVendeurs();
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        };
+
+        chargerVendeurs();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Analytics - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #6b2c91 0%, #9d4edd 100%);
+            color: white;
+        }
+        .admin-nav a { color: white; }
+        .admin-nav a.active { background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header admin-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">📊 ADMIN ANALYTICS</div>
+            <nav class="dashboard-nav admin-nav">
+                <a href="analytics.html" class="nav-link active">📈 Statistiques</a>
+                <a href="analytics-reports.html" class="nav-link">📄 Rapports</a>
+            </nav>
+            <button onclick="deconnexionAdmin()" class="btn btn-outline btn-sm" style="color: white; border-color: rgba(255,255,255,0.3);">🚪 Déconnexion</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Statistiques de la Plateforme</h1>
+                <p class="page-subtitle">Analyses et données de la base de données</p>
+            </div>
+            <button onclick="exporterDonnees()" class="btn btn-primary btn-lg">📥 Exporter les données</button>
+        </div>
+
+        <div class="stats-grid" id="analyticsGrid">
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                <div class="loader"></div>
+                <p style="margin-top: 15px; color: #718096;">Chargement des statistiques...</p>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: var(--spacing-xl);">
+            <div class="card-header">
+                <h2>📊 Analyses détaillées</h2>
+            </div>
+            <div class="card-body" id="analyticsDetails">
+                <div class="loader"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from "../js/config.js";
+        import { adminAuth } from "../js/admin-auth.js";
+        import { adminRoles, requirePermission } from "../js/admin-roles.js";
+        import { showSuccess, showError, showInfo } from "../js/notifications.js";
+
+        const session = adminRoles.getAdminSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        const hasAccess = await requirePermission('view_analytics');
+        if (!hasAccess) return;
+
+        window.deconnexionAdmin = () => adminAuth.deconnexionAdmin();
+
+        async function chargerAnalytics() {
+            try {
+                // Statistiques globales
+                const [storesCount, productsCount, ordersCount, usersCount] = await Promise.all([
+                    supabase.from('stores').select('*', { count: 'exact', head: true }),
+                    supabase.from('products').select('*', { count: 'exact', head: true }),
+                    supabase.from('orders').select('*', { count: 'exact', head: true }),
+                    supabase.from('users').select('*', { count: 'exact', head: true })
+                ]);
+
+                document.getElementById('analyticsGrid').innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-icon">🏪</div>
+                        <div class="stat-label">Boutiques</div>
+                        <div class="stat-value">${storesCount.count || 0}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📦</div>
+                        <div class="stat-label">Produits</div>
+                        <div class="stat-value">${productsCount.count || 0}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🛒</div>
+                        <div class="stat-label">Commandes</div>
+                        <div class="stat-value">${ordersCount.count || 0}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-label">Utilisateurs</div>
+                        <div class="stat-value">${usersCount.count || 0}</div>
+                    </div>
+                `;
+
+                // Analyses détaillées
+                const { data: orders } = await supabase
+                    .from('orders')
+                    .select('status, total, created_at')
+                    .order('created_at', { ascending: false })
+                    .limit(100);
+
+                const statsByStatus = {};
+                orders?.forEach(order => {
+                    statsByStatus[order.status] = (statsByStatus[order.status] || 0) + 1;
+                });
+
+                document.getElementById('analyticsDetails').innerHTML = `
+                    <h3>Répartition des commandes par statut</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md); margin-top: var(--spacing-md);">
+                        ${Object.entries(statsByStatus).map(([status, count]) => `
+                            <div class="card">
+                                <div style="font-size: 2em; margin-bottom: var(--spacing-sm);">${count}</div>
+                                <div style="color: var(--color-text-light);">${status}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        }
+
+        window.exporterDonnees = async function() {
+            if (!await requirePermission('export_data')) return;
+            const { showInfo } = await import("../js/notifications.js");
+            showInfo('Fonctionnalité d\'export en développement');
+        };
+
+        chargerAnalytics();
+    </script>
+</body>
+</html>
+

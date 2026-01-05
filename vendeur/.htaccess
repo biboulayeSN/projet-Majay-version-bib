@@ -1,0 +1,12 @@
+# Empêcher l'affichage de la liste des fichiers
+Options -Indexes
+
+# Rediriger vers index.html si on accède à /vendeur/
+DirectoryIndex index.html
+
+# Protéger les fichiers sensibles
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|sql)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+

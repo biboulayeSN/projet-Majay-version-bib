@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion Admins - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, var(--color-bg-dark) 0%, #16213e 100%);
+            color: white;
+        }
+        .admin-nav a { color: white; }
+        .admin-nav a.active { background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header admin-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">🛡️ ADMIN MAJAY</div>
+            <nav class="dashboard-nav admin-nav">
+                <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+                <a href="admins.html" class="nav-link active">👥 Admins</a>
+                <a href="vendeur.html" class="nav-link">👤 Vendeurs</a>
+                <a href="stores.html" class="nav-link">🏪 Boutiques</a>
+            </nav>
+            <button onclick="deconnexionAdmin()" class="btn btn-outline btn-sm" style="color: white; border-color: rgba(255,255,255,0.3);">🚪 Déconnexion</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Gestion des Administrateurs</h1>
+                <p class="page-subtitle">Créer et gérer les administrateurs de la plateforme</p>
+            </div>
+            <button onclick="ouvrirModalAjout()" class="btn btn-primary btn-lg" id="btnAddAdmin" style="display: none;">+ Créer un admin</button>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div style="overflow-x: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Nom</th>
+                                <th>Téléphone</th>
+                                <th>Email</th>
+                                <th>Rôle</th>
+                                <th>Statut</th>
+                                <th>Créé par</th>
+                                <th>Dernière connexion</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminsTable">
+                            <tr><td colspan="8" style="text-align: center; padding: 40px;">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ajout Admin -->
+    <div class="modal-backdrop" id="adminModalBackdrop"></div>
+    <div class="modal" id="adminModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Créer un administrateur</h2>
+                <button class="modal-close" onclick="fermerModal()">&times;</button>
+            </div>
+            <form id="adminForm" class="auth-form">
+                <div class="form-group">
+                    <label>Nom complet *</label>
+                    <input type="text" id="fullName" required placeholder="Ex: Jean Dupont">
+                </div>
+                <div class="form-group">
+                    <label>Numéro de téléphone *</label>
+                    <input type="tel" id="phone" required placeholder="780181144">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="email" placeholder="admin@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Rôle *</label>
+                    <select id="adminRole" required>
+                        <option value="">Sélectionner un rôle</option>
+                        <option value="super_admin">Super Administrateur</option>
+                        <option value="admin_commercial">Admin Commercial</option>
+                        <option value="admin_gestionnaire">Admin Gestionnaire</option>
+                        <option value="admin_commercial_gestionnaire">Admin Commercial & Gestionnaire (Combiné)</option>
+                        <option value="admin_analytics">Admin Analytics</option>
+                        <option value="admin_financial">Admin Financial</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Mot de passe *</label>
+                    <input type="password" id="password" required placeholder="••••••">
+                    <span class="form-hint">Le mot de passe sera hashé et stocké de manière sécurisée</span>
+                </div>
+                <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-lg);">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">💾 Créer l'admin</button>
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="fermerModal()">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { adminAuth } from "../js/admin-auth.js";
+        import { adminRoles, getAllAdmins, createAdmin, toggleAdmin, getRolePermissions } from "../js/admin-roles.js";
+        import { showSuccess, showError } from "../js/notifications.js";
+
+        const session = adminRoles.getAdminSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        // Vérifier si l'utilisateur peut créer des admins
+        if (session.can_create_admins || session.admin_role === adminRoles.ADMIN_ROLES.SUPER_ADMIN) {
+            document.getElementById('btnAddAdmin').style.display = 'block';
+        }
+
+        window.deconnexionAdmin = () => adminAuth.deconnexionAdmin();
+
+        async function chargerAdmins() {
+            try {
+                const admins = await getAllAdmins();
+                
+                if (admins.length === 0) {
+                    document.getElementById('adminsTable').innerHTML = `
+                        <tr><td colspan="8" class="empty-state">
+                            <div class="empty-state-icon">👥</div>
+                            <h3>Aucun administrateur</h3>
+                            <p>Créez votre premier administrateur</p>
+                        </td></tr>
+                    `;
+                    return;
+                }
+
+                const roleLabels = {
+                    'super_admin': '🛡️ Super Admin',
+                    'admin_commercial': '💼 Commercial',
+                    'admin_gestionnaire': '📋 Gestionnaire',
+                    'admin_commercial_gestionnaire': '💼📋 Commercial & Gestionnaire',
+                    'admin_analytics': '📊 Analytics',
+                    'admin_financial': '💰 Financial'
+                };
+
+                document.getElementById('adminsTable').innerHTML = admins.map(admin => {
+                    const lastLogin = admin.last_login 
+                        ? new Date(admin.last_login).toLocaleDateString('fr-FR')
+                        : 'Jamais';
+                    
+                    return `
+                        <tr>
+                            <td><strong>${admin.full_name || 'N/A'}</strong></td>
+                            <td>${admin.phone}</td>
+                            <td>${admin.email || 'N/A'}</td>
+                            <td><span class="badge">${roleLabels[admin.admin_role] || admin.admin_role}</span></td>
+                            <td>
+                                <span class="badge ${admin.is_active ? 'badge-success' : 'badge-danger'}">
+                                    ${admin.is_active ? 'Actif' : 'Inactif'}
+                                </span>
+                            </td>
+                            <td>${admin.created_by_name || 'Système'}</td>
+                            <td>${lastLogin}</td>
+                            <td>
+                                <button onclick="toggleAdminStatus('${admin.id}', ${!admin.is_active})" 
+                                        class="btn btn-sm ${admin.is_active ? 'btn-danger' : 'btn-success'}">
+                                    ${admin.is_active ? 'Désactiver' : 'Activer'}
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                showError('Erreur lors du chargement: ' + error.message);
+            }
+        }
+
+        window.toggleAdminStatus = async function(adminId, isActive) {
+            try {
+                await toggleAdmin(adminId, isActive);
+                showSuccess(`Administrateur ${isActive ? 'activé' : 'désactivé'} avec succès`);
+                chargerAdmins();
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        };
+
+        window.ouvrirModalAjout = function() {
+            document.getElementById('modalTitle').textContent = 'Créer un administrateur';
+            document.getElementById('adminForm').reset();
+            document.getElementById('adminModal').classList.add('active');
+            document.getElementById('adminModalBackdrop').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        };
+
+        window.fermerModal = function() {
+            document.getElementById('adminModal').classList.remove('active');
+            document.getElementById('adminModalBackdrop').classList.remove('active');
+            document.body.style.overflow = 'auto';
+        };
+
+        document.getElementById('adminForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.textContent = '⏳ Création...';
+
+            try {
+                const adminData = {
+                    full_name: document.getElementById('fullName').value.trim(),
+                    phone: document.getElementById('phone').value.trim(),
+                    email: document.getElementById('email').value.trim() || null,
+                    admin_role: document.getElementById('adminRole').value,
+                    password: document.getElementById('password').value
+                };
+
+                await createAdmin(adminData);
+                showSuccess('Administrateur créé avec succès !');
+                fermerModal();
+                chargerAdmins();
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '💾 Créer l\'admin';
+            }
+        });
+
+        chargerAdmins();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Équipe - MAJAY</title>
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .dashboard-page { background: #f7fafc; }
+        .dashboard-header {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .dashboard-header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dashboard-logo { font-size: 1.5em; font-weight: 900; color: #667eea; }
+        .dashboard-nav { display: flex; gap: 20px; }
+        .nav-link {
+            color: #718096;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+        .nav-link.active { background: #edf2f7; color: #667eea; }
+        .dashboard-container { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .member-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">🛍️ MAJAY</div>
+            <nav class="dashboard-nav">
+                <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+                <a href="produits.html" class="nav-link">📦 Produits</a>
+                <a href="commandes.html" class="nav-link">🛒 Commandes</a>
+                <a href="equipe.html" class="nav-link active">👥 Équipe</a>
+                <a href="profil.html" class="nav-link">⚙️ Profil</a>
+            </nav>
+            <button onclick="window.authMajay.deconnexion()" style="background: none; border: none; cursor: pointer; font-size: 1.2em;">🚪</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <h1 style="font-size: 2em; margin-bottom: 30px;">Mon Équipe</h1>
+        <div id="planWarning" style="display: none; background: #fff3cd; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+            ⚠️ Cette fonctionnalité est disponible uniquement avec le plan Entreprise
+        </div>
+        <div class="team-grid" id="teamGrid">
+            <div class="loader"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { teamUtils } from "../js/team.js";
+        import { authMajay } from "../js/auth.js";
+
+        const session = authMajay.getSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        if (session.subscription_plan !== 'entreprise') {
+            document.getElementById('planWarning').style.display = 'block';
+        }
+
+        async function chargerEquipe() {
+            try {
+                const result = await teamUtils.getTeamMembers();
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                const members = result.data || [];
+                if (members.length === 0) {
+                    document.getElementById('teamGrid').innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 60px; color: #718096;">
+                            <div style="font-size: 4em; margin-bottom: 20px;">👥</div>
+                            <p>Aucun membre d'équipe</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                document.getElementById('teamGrid').innerHTML = members.map(m => {
+                    const user = Array.isArray(m.user) ? m.user[0] : m.user;
+                    return `
+                    <div class="member-card">
+                        <h3>${user?.full_name || 'N/A'}</h3>
+                        <p>📞 ${user?.phone || 'N/A'}</p>
+                        <p>Rôle: ${m.role}</p>
+                    </div>
+                `;
+                }).join('');
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        chargerEquipe();
+    </script>
+</body>
+</html>
+

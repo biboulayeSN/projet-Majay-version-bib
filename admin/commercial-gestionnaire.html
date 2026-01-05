@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Commercial & Gestionnaire - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #1a5490 0%, #2d7fc4 50%, #2d5016 100%);
+            color: white;
+        }
+        .admin-nav a { color: white; }
+        .admin-nav a.active { background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header admin-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">💼📋 ADMIN COMMERCIAL & GESTIONNAIRE</div>
+            <nav class="dashboard-nav admin-nav">
+                <a href="commercial.html" class="nav-link">👥 Vendeurs</a>
+                <a href="gestionnaire.html" class="nav-link">🏪 Boutiques</a>
+                <a href="commercial-gestionnaire.html" class="nav-link active">📊 Vue d'ensemble</a>
+            </nav>
+            <button onclick="deconnexionAdmin()" class="btn btn-outline btn-sm" style="color: white; border-color: rgba(255,255,255,0.3);">🚪 Déconnexion</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Vue d'ensemble Commercial & Gestionnaire</h1>
+                <p class="page-subtitle">Gestion complète des vendeurs et boutiques</p>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-label">Vendeurs actifs</div>
+                <div class="stat-value" id="vendorsCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🏪</div>
+                <div class="stat-label">Boutiques actives</div>
+                <div class="stat-value" id="storesCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-label">Produits actifs</div>
+                <div class="stat-value" id="productsCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🚫</div>
+                <div class="stat-label">Boutiques bannies</div>
+                <div class="stat-value" id="bannedStores">-</div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: var(--spacing-lg); margin-top: var(--spacing-xl);">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Actions rapides - Vendeurs</h3>
+                </div>
+                <div class="card-body">
+                    <a href="commercial.html" class="btn btn-primary" style="width: 100%; margin-bottom: var(--spacing-sm);">
+                        👥 Gérer les vendeurs
+                    </a>
+                    <a href="commercial.html#inactive" class="btn btn-outline" style="width: 100%;">
+                        📋 Vendeurs inactifs
+                    </a>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Actions rapides - Boutiques</h3>
+                </div>
+                <div class="card-body">
+                    <a href="gestionnaire.html" class="btn btn-primary" style="width: 100%; margin-bottom: var(--spacing-sm);">
+                        🏪 Gérer les boutiques
+                    </a>
+                    <a href="gestionnaire.html#banned" class="btn btn-outline" style="width: 100%;">
+                        🚫 Boutiques bannies
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from "../js/config.js";
+        import { adminAuth } from "../js/admin-auth.js";
+        import { adminRoles, requirePermission } from "../js/admin-roles.js";
+        import { showError } from "../js/notifications.js";
+
+        const session = adminRoles.getAdminSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        // Vérifier les permissions (doit avoir au moins une des deux)
+        const hasCommercial = await requirePermission('view_vendors', 'commercial.html');
+        const hasGestionnaire = await requirePermission('view_stores', 'gestionnaire.html');
+
+        if (!hasCommercial && !hasGestionnaire) {
+            window.location.href = 'dashboard.html';
+        }
+
+        window.deconnexionAdmin = () => adminAuth.deconnexionAdmin();
+
+        async function chargerStats() {
+            try {
+                // Compter les vendeurs actifs
+                const { count: vendorsCount } = await supabase
+                    .from('users')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('role_type', 'owner')
+                    .eq('is_active', true)
+                    .is('admin_role', null);
+
+                // Compter les boutiques actives
+                const { count: storesCount } = await supabase
+                    .from('stores')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('is_active', true);
+
+                // Compter les boutiques bannies
+                const { count: bannedStores } = await supabase
+                    .from('stores')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('is_active', false);
+
+                // Compter les produits actifs
+                const { count: productsCount } = await supabase
+                    .from('products')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('is_active', true);
+
+                document.getElementById('vendorsCount').textContent = vendorsCount || 0;
+                document.getElementById('storesCount').textContent = storesCount || 0;
+                document.getElementById('productsCount').textContent = productsCount || 0;
+                document.getElementById('bannedStores').textContent = bannedStores || 0;
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        }
+
+        chargerStats();
+    </script>
+</body>
+</html>
+

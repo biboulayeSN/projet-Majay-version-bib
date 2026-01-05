@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factures - MAJAY</title>
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .dashboard-page { background: #f7fafc; }
+        .dashboard-header {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .dashboard-header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dashboard-logo { font-size: 1.5em; font-weight: 900; color: #667eea; }
+        .dashboard-nav { display: flex; gap: 20px; }
+        .nav-link {
+            color: #718096;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+        .nav-link.active { background: #edf2f7; color: #667eea; }
+        .dashboard-container { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+        .invoice-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">🛍️ MAJAY</div>
+            <nav class="dashboard-nav">
+                <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+                <a href="abonnements.html" class="nav-link">💳 Abonnements</a>
+                <a href="factures.html" class="nav-link active">📄 Factures</a>
+                <a href="profil.html" class="nav-link">⚙️ Profil</a>
+            </nav>
+            <button onclick="window.authMajay.deconnexion()" style="background: none; border: none; cursor: pointer; font-size: 1.2em;">🚪</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <h1 style="font-size: 2em; margin-bottom: 30px;">Mes Factures</h1>
+        <div id="invoicesList">
+            <div class="loader"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { subscriptionsUtils } from "../js/subscriptions.js";
+        import { authMajay } from "../js/auth.js";
+
+        const session = authMajay.getSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        async function chargerFactures() {
+            try {
+                const result = await subscriptionsUtils.getInvoices();
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                const invoices = result.data || [];
+                if (invoices.length === 0) {
+                    document.getElementById('invoicesList').innerHTML = `
+                        <div style="text-align: center; padding: 60px; color: #718096;">
+                            <div style="font-size: 4em; margin-bottom: 20px;">📄</div>
+                            <p>Aucune facture</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                document.getElementById('invoicesList').innerHTML = invoices.map(inv => {
+                    const statusNames = {
+                        unpaid: '❌ Non payée',
+                        partial: '⚠️ Partielle',
+                        paid: '✅ Payée',
+                        overdue: '🔴 En retard',
+                        refunded: '↩️ Remboursée'
+                    };
+                    return `
+                    <div class="invoice-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3>${inv.invoice_number}</h3>
+                                <p>${new Date(inv.issued_at).toLocaleDateString('fr-FR')}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 1.5em; font-weight: 700; color: #25D366;">${parseInt(inv.amount || 0).toLocaleString()} ${inv.currency || 'XOF'}</div>
+                                <div style="margin-top: 5px;">${statusNames[inv.payment_status] || inv.payment_status}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                }).join('');
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        chargerFactures();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Gestionnaire - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%);
+            color: white;
+        }
+        .admin-nav a { color: white; }
+        .admin-nav a.active { background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header admin-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">📋 ADMIN GESTIONNAIRE</div>
+            <nav class="dashboard-nav admin-nav">
+                <a href="gestionnaire.html" class="nav-link active">🏪 Boutiques</a>
+                <a href="gestionnaire-enterprise.html" class="nav-link">👥 Vendeurs Entreprise</a>
+            </nav>
+            <button onclick="deconnexionAdmin()" class="btn btn-outline btn-sm" style="color: white; border-color: rgba(255,255,255,0.3);">🚪 Déconnexion</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Gestion des Boutiques</h1>
+                <p class="page-subtitle">Restrictions, bannissements et gestion des produits</p>
+            </div>
+        </div>
+
+        <div class="filters-bar">
+            <input type="text" class="search-input" id="searchInput" placeholder="Rechercher une boutique...">
+            <select class="filter-select" id="statusFilter">
+                <option value="">Tous les statuts</option>
+                <option value="active">Actives</option>
+                <option value="banned">Bannies</option>
+                <option value="restricted">Restreintes</option>
+            </select>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div style="overflow-x: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Boutique</th>
+                                <th>Propriétaire</th>
+                                <th>Plan</th>
+                                <th>Produits</th>
+                                <th>Statut</th>
+                                <th>Restrictions</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="storesTable">
+                            <tr><td colspan="7" style="text-align: center; padding: 40px;">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from "../js/config.js";
+        import { adminAuth } from "../js/admin-auth.js";
+        import { adminRoles, requirePermission } from "../js/admin-roles.js";
+        import { showSuccess, showError, showInfo } from "../js/notifications.js";
+
+        const session = adminRoles.getAdminSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        const hasAccess = await requirePermission('view_stores');
+        if (!hasAccess) return;
+
+        window.deconnexionAdmin = () => adminAuth.deconnexionAdmin();
+
+        async function chargerBoutiques() {
+            try {
+                const { data: stores, error } = await supabase
+                    .from('stores')
+                    .select(`
+                        id,
+                        name,
+                        slug,
+                        subscription_plan,
+                        is_active,
+                        owner:users!stores_owner_id_fkey (
+                            full_name,
+                            phone
+                        ),
+                        products:products!products_store_id_fkey (
+                            id,
+                            is_active
+                        )
+                    `)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!stores || stores.length === 0) {
+                    document.getElementById('storesTable').innerHTML = `
+                        <tr><td colspan="7" class="empty-state">
+                            <div class="empty-state-icon">🏪</div>
+                            <h3>Aucune boutique</h3>
+                        </td></tr>
+                    `;
+                    return;
+                }
+
+                document.getElementById('storesTable').innerHTML = stores.map(store => {
+                    const activeProducts = store.products?.filter(p => p.is_active).length || 0;
+                    const totalProducts = store.products?.length || 0;
+                    
+                    return `
+                        <tr>
+                            <td><strong>${store.name}</strong><br><small>${store.slug}</small></td>
+                            <td>${store.owner?.full_name || 'N/A'}<br><small>${store.owner?.phone || ''}</small></td>
+                            <td><span class="badge badge-${store.subscription_plan}">${store.subscription_plan.toUpperCase()}</span></td>
+                            <td>${activeProducts} / ${totalProducts}</td>
+                            <td>
+                                <span class="badge ${store.is_active ? 'badge-success' : 'badge-danger'}">
+                                    ${store.is_active ? 'Active' : 'Bannie'}
+                                </span>
+                            </td>
+                            <td>-</td>
+                            <td>
+                                <button onclick="banStore('${store.id}', ${!store.is_active})" 
+                                        class="btn btn-sm ${store.is_active ? 'btn-danger' : 'btn-success'}">
+                                    ${store.is_active ? 'Bannir' : 'Débannir'}
+                                </button>
+                                <button onclick="restrictProducts('${store.id}')" 
+                                        class="btn btn-sm btn-warning">
+                                    Restreindre
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        }
+
+        window.banStore = async function(storeId, isBanned) {
+            if (!await requirePermission('ban_stores')) return;
+            
+            try {
+                const { error } = await supabase
+                    .from('stores')
+                    .update({ 
+                        is_active: !isBanned,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', storeId);
+
+                if (error) throw error;
+                showSuccess(`Boutique ${isBanned ? 'bannie' : 'débannie'} avec succès`);
+                chargerBoutiques();
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        };
+
+        window.restrictProducts = async function(storeId) {
+            if (!await requirePermission('restrict_products')) return;
+            showInfo('Fonctionnalité de restriction en développement');
+        };
+
+        chargerBoutiques();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,9 @@
+# Configuration Netlify/Vercel pour le routage MAJAY
+# Si vous déployez sur Netlify ou Vercel, ce fichier gère le routage
+
+# Rediriger admin.site.com vers /admin/
+/admin/*  /admin/:splat  200
+
+# Rediriger les boutiques vers store-router.html
+/*  /store-router.html  200
+

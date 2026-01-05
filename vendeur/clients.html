@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mes Clients - MAJAY</title>
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .dashboard-page { background: #f7fafc; }
+        .dashboard-header {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .dashboard-header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dashboard-logo { font-size: 1.5em; font-weight: 900; color: #667eea; }
+        .dashboard-nav { display: flex; gap: 20px; }
+        .nav-link {
+            color: #718096;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+        .nav-link.active { background: #edf2f7; color: #667eea; }
+        .dashboard-container { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+        .filters-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .filter-select {
+            padding: 10px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+        }
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+        }
+        .customers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .customer-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .customer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+        .customer-name {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #2d3748;
+        }
+        .badge-segment {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .segment-champion { background: #d4edda; color: #155724; }
+        .segment-loyal { background: #cce5ff; color: #004085; }
+        .segment-potential { background: #fff3cd; color: #856404; }
+        .segment-at_risk { background: #f8d7da; color: #721c24; }
+        .segment-lost { background: #e2e3e5; color: #383d41; }
+        .segment-new { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">🛍️ MAJAY</div>
+            <nav class="dashboard-nav">
+                <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+                <a href="produits.html" class="nav-link">📦 Produits</a>
+                <a href="commandes.html" class="nav-link">🛒 Commandes</a>
+                <a href="clients.html" class="nav-link active">👥 Clients</a>
+                <a href="analytics.html" class="nav-link">📈 Analytics</a>
+                <a href="profil.html" class="nav-link">⚙️ Profil</a>
+            </nav>
+            <button onclick="window.authMajay.deconnexion()" style="background: none; border: none; cursor: pointer; font-size: 1.2em;">🚪</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <h1 style="font-size: 2em; margin-bottom: 30px;">Mes Clients</h1>
+
+        <div class="filters-bar">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 Rechercher un client...">
+            <select id="segmentFilter" class="filter-select">
+                <option value="">Tous les segments</option>
+                <option value="champion">Champion</option>
+                <option value="loyal">Loyal</option>
+                <option value="potential">Potentiel</option>
+                <option value="at_risk">À risque</option>
+                <option value="lost">Perdu</option>
+                <option value="new">Nouveau</option>
+            </select>
+            <select id="cityFilter" class="filter-select">
+                <option value="">Toutes les villes</option>
+            </select>
+        </div>
+
+        <div class="customers-grid" id="customersGrid">
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                <div class="loader"></div>
+                <p style="margin-top: 15px; color: #718096;">Chargement...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { customersUtils } from "../js/customers.js";
+        import { authMajay } from "../js/auth.js";
+
+        const session = authMajay.getSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        let allCustomers = [];
+
+        async function chargerClients() {
+            try {
+                const result = await customersUtils.getCustomers();
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                allCustomers = result.data || [];
+                afficherClients(allCustomers);
+                mettreAJourFiltres();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('customersGrid').innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 60px; color: #718096;">
+                        <div style="font-size: 3em; margin-bottom: 15px;">❌</div>
+                        <p>Erreur lors du chargement des clients</p>
+                    </div>
+                `;
+            }
+        }
+
+        function mettreAJourFiltres() {
+            const cities = [...new Set(allCustomers.map(c => c.city).filter(Boolean))].sort();
+            const citySelect = document.getElementById('cityFilter');
+            citySelect.innerHTML = '<option value="">Toutes les villes</option>' + 
+                cities.map(city => `<option value="${city}">${city}</option>`).join('');
+        }
+
+        function afficherClients(customers) {
+            if (customers.length === 0) {
+                document.getElementById('customersGrid').innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 60px; color: #718096;">
+                        <div style="font-size: 4em; margin-bottom: 20px;">👥</div>
+                        <h3>Aucun client</h3>
+                        <p>Les clients seront ajoutés automatiquement lors des commandes</p>
+                    </div>
+                `;
+                return;
+            }
+
+            document.getElementById('customersGrid').innerHTML = customers.map(customer => {
+                const segmentClass = `segment-${customer.customer_segment || 'new'}`;
+                const segmentNames = {
+                    champion: '🏆 Champion',
+                    loyal: '⭐ Loyal',
+                    potential: '💎 Potentiel',
+                    at_risk: '⚠️ À risque',
+                    lost: '💔 Perdu',
+                    new: '🆕 Nouveau'
+                };
+                return `
+                <div class="customer-card">
+                    <div class="customer-header">
+                        <div>
+                            <div class="customer-name">${customer.first_name} ${customer.last_name || ''}</div>
+                            <div style="color: #718096; font-size: 0.9em; margin-top: 5px;">📞 ${customer.phone}</div>
+                        </div>
+                        <span class="badge-segment ${segmentClass}">${segmentNames[customer.customer_segment || 'new']}</span>
+                    </div>
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: #718096;">Commandes:</span>
+                            <span style="font-weight: 600;">${customer.total_orders || 0}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: #718096;">Total dépensé:</span>
+                            <span style="font-weight: 600; color: #25D366;">${parseInt(customer.total_spent || 0).toLocaleString()} XOF</span>
+                        </div>
+                        ${customer.city ? `<div style="color: #718096; font-size: 0.9em;">📍 ${customer.city}</div>` : ''}
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        // Filtres
+        document.getElementById('searchInput').addEventListener('input', function() {
+            filtrerClients();
+        });
+
+        document.getElementById('segmentFilter').addEventListener('change', function() {
+            filtrerClients();
+        });
+
+        document.getElementById('cityFilter').addEventListener('change', function() {
+            filtrerClients();
+        });
+
+        function filtrerClients() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const segment = document.getElementById('segmentFilter').value;
+            const city = document.getElementById('cityFilter').value;
+
+            let filtered = allCustomers.filter(c => {
+                const matchSearch = !search || 
+                    c.first_name?.toLowerCase().includes(search) ||
+                    c.last_name?.toLowerCase().includes(search) ||
+                    c.phone?.includes(search);
+                
+                const matchSegment = !segment || c.customer_segment === segment;
+                const matchCity = !city || c.city === city;
+
+                return matchSearch && matchSegment && matchCity;
+            });
+
+            afficherClients(filtered);
+        }
+
+        chargerClients();
+    </script>
+</body>
+</html>
+

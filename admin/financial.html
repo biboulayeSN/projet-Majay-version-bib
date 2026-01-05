@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Financial - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #b8860b 0%, #daa520 100%);
+            color: white;
+        }
+        .admin-nav a { color: white; }
+        .admin-nav a.active { background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header admin-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">💰 ADMIN FINANCIAL</div>
+            <nav class="dashboard-nav admin-nav">
+                <a href="financial.html" class="nav-link active">💳 Paiements</a>
+                <a href="financial-invoices.html" class="nav-link">📄 Factures</a>
+                <a href="financial-subscriptions.html" class="nav-link">🔄 Abonnements</a>
+            </nav>
+            <button onclick="deconnexionAdmin()" class="btn btn-outline btn-sm" style="color: white; border-color: rgba(255,255,255,0.3);">🚪 Déconnexion</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Gestion des Paiements</h1>
+                <p class="page-subtitle">Vérification et conformité des paiements</p>
+            </div>
+        </div>
+
+        <div class="filters-bar">
+            <select class="filter-select" id="statusFilter">
+                <option value="">Tous les statuts</option>
+                <option value="paid">Payés</option>
+                <option value="unpaid">Non payés</option>
+                <option value="partial">Partiels</option>
+                <option value="overdue">En retard</option>
+            </select>
+            <input type="date" class="filter-select" id="dateFrom" placeholder="Date début">
+            <input type="date" class="filter-select" id="dateTo" placeholder="Date fin">
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div style="overflow-x: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Facture</th>
+                                <th>Boutique</th>
+                                <th>Montant</th>
+                                <th>Statut</th>
+                                <th>Date</th>
+                                <th>Vérification</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paymentsTable">
+                            <tr><td colspan="7" style="text-align: center; padding: 40px;">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from "../js/config.js";
+        import { adminAuth } from "../js/admin-auth.js";
+        import { adminRoles, requirePermission } from "../js/admin-roles.js";
+        import { showSuccess, showError } from "../js/notifications.js";
+
+        const session = adminRoles.getAdminSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        const hasAccess = await requirePermission('view_payments');
+        if (!hasAccess) return;
+
+        window.deconnexionAdmin = () => adminAuth.deconnexionAdmin();
+
+        async function chargerPaiements() {
+            try {
+                const { data: invoices, error } = await supabase
+                    .from('invoices')
+                    .select(`
+                        id,
+                        invoice_number,
+                        amount,
+                        status,
+                        due_date,
+                        paid_at,
+                        store:stores!invoices_store_id_fkey (
+                            name,
+                            slug
+                        )
+                    `)
+                    .order('created_at', { ascending: false })
+                    .limit(100);
+
+                if (error) throw error;
+
+                if (!invoices || invoices.length === 0) {
+                    document.getElementById('paymentsTable').innerHTML = `
+                        <tr><td colspan="7" class="empty-state">
+                            <div class="empty-state-icon">💳</div>
+                            <h3>Aucun paiement</h3>
+                        </td></tr>
+                    `;
+                    return;
+                }
+
+                const statusLabels = {
+                    'paid': 'Payé',
+                    'unpaid': 'Non payé',
+                    'partial': 'Partiel',
+                    'overdue': 'En retard',
+                    'refunded': 'Remboursé'
+                };
+
+                const statusClasses = {
+                    'paid': 'badge-success',
+                    'unpaid': 'badge-danger',
+                    'partial': 'badge-warning',
+                    'overdue': 'badge-danger',
+                    'refunded': 'badge-warning'
+                };
+
+                document.getElementById('paymentsTable').innerHTML = invoices.map(invoice => {
+                    return `
+                        <tr>
+                            <td><strong>${invoice.invoice_number}</strong></td>
+                            <td>${invoice.store?.name || 'N/A'}</td>
+                            <td>${parseInt(invoice.amount || 0).toLocaleString()} XOF</td>
+                            <td><span class="badge ${statusClasses[invoice.status]}">${statusLabels[invoice.status] || invoice.status}</span></td>
+                            <td>${new Date(invoice.due_date).toLocaleDateString('fr-FR')}</td>
+                            <td>${invoice.paid_at ? '✅ Vérifié' : '⏳ En attente'}</td>
+                            <td>
+                                ${invoice.status !== 'paid' ? `
+                                    <button onclick="verifierPaiement('${invoice.id}')" 
+                                            class="btn btn-sm btn-success">
+                                        Vérifier
+                                    </button>
+                                ` : ''}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        }
+
+        window.verifierPaiement = async function(invoiceId) {
+            if (!await requirePermission('verify_payments')) return;
+            
+            try {
+                const { error } = await supabase
+                    .from('invoices')
+                    .update({ 
+                        status: 'paid',
+                        paid_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', invoiceId);
+
+                if (error) throw error;
+                showSuccess('Paiement vérifié avec succès');
+                chargerPaiements();
+            } catch (error) {
+                showError('Erreur: ' + error.message);
+            }
+        };
+
+        chargerPaiements();
+    </script>
+</body>
+</html>
+

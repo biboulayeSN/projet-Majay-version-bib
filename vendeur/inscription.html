@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1 class="logo">🛍️ MAJAY</h1>
+            <p class="tagline">Créez votre boutique en ligne</p>
+        </div>
+
+        <div class="auth-card">
+            <h2>Inscription Vendeur</h2>
+            <p class="auth-subtitle">Commencez à vendre en 2 minutes</p>
+
+            <!-- Étape 1 : Informations boutique -->
+            <form id="inscriptionForm" class="auth-form" style="display: block;">
+                <div class="form-group">
+                    <label>Nom de votre boutique *</label>
+                    <input type="text" id="nom" required placeholder="Ex: Fashion Store">
+                </div>
+
+                <div class="form-group">
+                    <label>Adresse de votre boutique *</label>
+                    <div class="input-with-prefix">
+                        <span class="prefix">majay.com/</span>
+                        <input type="text" id="slug" required placeholder="ma-boutique">
+                    </div>
+                    <span class="form-hint">Lettres minuscules et tirets uniquement</span>
+                </div>
+
+                <div class="form-group">
+                    <label>Votre nom complet *</label>
+                    <input type="text" id="full_name" required placeholder="Ex: Amadou Diallo">
+                </div>
+
+                <div class="form-group">
+                    <label>Numéro de téléphone *</label>
+                    <input type="tel" id="telephone" required placeholder="+221 77 123 45 67">
+                    <span class="form-hint">Format : +221 77 123 45 67</span>
+                </div>
+
+                <div class="form-group">
+                    <label>WhatsApp</label>
+                    <input type="tel" id="whatsapp" placeholder="Même numéro ou autre">
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="cgu" required>
+                        <span>J'accepte les conditions</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn-primary" id="btnSubmit">
+                    <span class="btn-text">Envoyer le code</span>
+                    <span class="btn-loader" style="display:none">⏳</span>
+                </button>
+            </form>
+
+            <!-- Étape 2 : Code OTP -->
+            <form id="otpForm" class="auth-form" style="display: none;">
+                <div class="form-group">
+                    <label>Code de vérification</label>
+                    <input type="text" id="otpCode" required placeholder="123456" maxlength="6" pattern="[0-9]{6}">
+                    <span class="form-hint">Entrez le code reçu par SMS</span>
+                </div>
+
+                <button type="submit" class="btn-primary" id="btnVerify">
+                    <span class="btn-text">Créer ma boutique</span>
+                    <span class="btn-loader" style="display:none">⏳</span>
+                </button>
+
+                <button type="button" class="btn-secondary" onclick="retourInfos()" style="margin-top: 10px; width: 100%;">
+                    Retour
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Vous avez déjà un compte ? <a href="connexion.html">Se connecter</a></p>
+            </div>
+        </div>
+    </div>
+<script type="module">
+import { authMajay } from "../js/auth.js";
+
+document.getElementById('inscriptionForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true;
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loader').style.display = 'inline';
+
+    try {
+        const result = await authMajay.inscrireVendeur({
+            nom: document.getElementById('nom').value.trim(),
+            slug: document.getElementById('slug').value.trim(),
+            full_name: document.getElementById('full_name').value.trim(),
+            telephone: document.getElementById('telephone').value.trim(),
+            whatsapp: document.getElementById('whatsapp').value.trim() || document.getElementById('telephone').value.trim()
+        });
+
+        btn.disabled = false;
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-loader').style.display = 'none';
+
+        if (result.success) {
+            const { showSuccess } = await import("../js/notifications.js");
+            showSuccess("Code envoyé ! Vérifiez votre téléphone.");
+            // Afficher le formulaire OTP
+            document.getElementById("inscriptionForm").style.display = 'none';
+            document.getElementById("otpForm").style.display = 'block';
+            document.getElementById("otpCode").focus();
+        } else {
+            throw new Error(result.error);
+        }
+
+    } catch (error) {
+        const { showError } = await import("../js/notifications.js");
+        showError(error.message);
+        btn.disabled = false;
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-loader').style.display = 'none';
+    }
+});
+
+document.getElementById('otpForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const btn = document.getElementById('btnVerify');
+    btn.disabled = true;
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loader').style.display = 'inline';
+
+    try {
+        const telephone = document.getElementById('telephone').value.trim();
+        const code = document.getElementById('otpCode').value.trim();
+
+        const result = await authMajay.finaliserInscription(telephone, code);
+
+        if (result.success) {
+            const { showSuccess } = await import("../js/notifications.js");
+            showSuccess('Boutique créée avec succès ! Redirection...');
+            setTimeout(() => {
+                window.location.href = 'dashboard.html';
+            }, 1500);
+        } else {
+            throw new Error(result.error);
+        }
+
+    } catch (error) {
+        const { showError } = await import("../js/notifications.js");
+        showError(error.message);
+        btn.disabled = false;
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-loader').style.display = 'none';
+    }
+});
+
+window.retourInfos = function() {
+    document.getElementById("inscriptionForm").style.display = 'block';
+    document.getElementById("otpForm").style.display = 'none';
+    document.getElementById("otpCode").value = '';
+};
+</script>
+
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion Boutiques - MAJAY Admin</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 20px;
+        }
+        .admin-nav a { color: white; }
+        .admin-nav a.active { background: rgba(255,255,255,0.2); }
+        .dashboard-container { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+        table { width: 100%; background: white; border-radius: 16px; overflow: hidden; }
+        th, td { padding: 15px; text-align: left; }
+        th { background: #f7fafc; font-weight: 700; }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header admin-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">🛡️ ADMIN MAJAY</div>
+            <nav class="dashboard-nav admin-nav">
+                <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+                <a href="vendeur.html" class="nav-link">👥 Vendeurs</a>
+                <a href="stores.html" class="nav-link active">🏪 Boutiques</a>
+            </nav>
+            <button onclick="deconnexionAdmin()" style="background: none; border: none; cursor: pointer; font-size: 1.2em; color: white;">🚪</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <h1 style="font-size: 2em; margin-bottom: 30px;">Gestion des Boutiques</h1>
+        <div style="background: white; border-radius: 16px; overflow: hidden;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nom</th>
+                        <th>Propriétaire</th>
+                        <th>Plan</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="storesTable">
+                    <tr><td colspan="5" style="text-align: center; padding: 40px;">Chargement...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import { adminAuth } from "../js/admin-auth.js";
+
+        const admin = adminAuth.verifierAuthAdmin();
+        if (!admin) window.location.href = 'connexion.html';
+
+        window.deconnexionAdmin = () => adminAuth.deconnexionAdmin();
+
+        async function chargerBoutiques() {
+            try {
+                const stores = await adminAuth.getStores();
+                if (stores.length === 0) {
+                    document.getElementById('storesTable').innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px;">Aucune boutique</td></tr>';
+                    return;
+                }
+
+                document.getElementById('storesTable').innerHTML = stores.map(store => {
+                    const owner = Array.isArray(store.owner) ? store.owner[0] : store.owner;
+                    return `
+                    <tr>
+                        <td>${store.name}</td>
+                        <td>${owner?.full_name || 'N/A'}</td>
+                        <td>${store.subscription_plan}</td>
+                        <td>${store.is_active ? '✅ Actif' : '❌ Inactif'}</td>
+                        <td>
+                            <button onclick="toggleStore('${store.id}', ${!store.is_active})" class="btn-primary">
+                                ${store.is_active ? 'Désactiver' : 'Activer'}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                }).join('');
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        window.toggleStore = async function(id, isActive) {
+            try {
+                await adminAuth.toggleStore(id, isActive);
+                chargerBoutiques();
+            } catch (error) {
+                alert('❌ ' + error.message);
+            }
+        };
+
+        chargerBoutiques();
+    </script>
+</body>
+</html>
+

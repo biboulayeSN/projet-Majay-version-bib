@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1 class="logo">🛍️ MAJAY</h1>
+            <p class="tagline">Connectez-vous</p>
+        </div>
+
+        <div class="auth-card">
+            <h2>Connexion Vendeur</h2>
+            <p class="auth-subtitle">Gérez votre boutique</p>
+
+            <!-- Étape 1 : Entrer le téléphone -->
+            <form id="connexionForm" class="auth-form" style="display: block;">
+                <div class="form-group">
+                    <label>Numéro de téléphone</label>
+                    <input type="tel" id="telephone" required placeholder="+221 77 123 45 67">
+                    <span class="form-hint">Format : +221 77 123 45 67</span>
+                </div>
+
+                <button type="submit" class="btn-primary" id="btnSubmit">
+                    <span class="btn-text">Envoyer le code</span>
+                    <span class="btn-loader" style="display:none">⏳</span>
+                </button>
+            </form>
+
+            <!-- Étape 2 : Entrer le code OTP -->
+            <form id="otpForm" class="auth-form" style="display: none;">
+                <div class="form-group">
+                    <label>Code de vérification</label>
+                    <input type="text" id="otpCode" required placeholder="123456" maxlength="6" pattern="[0-9]{6}">
+                    <span class="form-hint">Entrez le code reçu par SMS</span>
+                </div>
+
+                <button type="submit" class="btn-primary" id="btnVerify">
+                    <span class="btn-text">Vérifier</span>
+                    <span class="btn-loader" style="display:none">⏳</span>
+                </button>
+
+                <button type="button" class="btn-secondary" onclick="retourTelephone()" style="margin-top: 10px; width: 100%;">
+                    Retour
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Pas de boutique ? <a href="inscription.html">Créer maintenant</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+import { authMajay } from "../js/auth.js";
+
+let phoneNumber = '';
+
+document.getElementById("connexionForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const btn = document.getElementById("btnSubmit");
+  btn.disabled = true;
+  btn.querySelector('.btn-text').style.display = 'none';
+  btn.querySelector('.btn-loader').style.display = 'inline';
+
+  phoneNumber = document.getElementById("telephone").value.trim();
+
+  const result = await authMajay.connexionVendeur(phoneNumber);
+
+  btn.disabled = false;
+  btn.querySelector('.btn-text').style.display = 'inline';
+  btn.querySelector('.btn-loader').style.display = 'none';
+
+  if (!result.success) {
+    const { showError } = await import("../js/notifications.js");
+    showError(result.error);
+    return;
+  }
+  
+  const { showSuccess } = await import("../js/notifications.js");
+  showSuccess("Code envoyé ! Vérifiez votre téléphone.");
+
+  // Afficher le formulaire OTP
+  document.getElementById("connexionForm").style.display = 'none';
+  document.getElementById("otpForm").style.display = 'block';
+  document.getElementById("otpCode").focus();
+});
+
+document.getElementById("otpForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const btn = document.getElementById("btnVerify");
+  btn.disabled = true;
+  btn.querySelector('.btn-text').style.display = 'none';
+  btn.querySelector('.btn-loader').style.display = 'inline';
+
+  const code = document.getElementById("otpCode").value.trim();
+
+  const result = await authMajay.verifierConnexion(code);
+
+  btn.disabled = false;
+  btn.querySelector('.btn-text').style.display = 'inline';
+  btn.querySelector('.btn-loader').style.display = 'none';
+
+  if (!result.success) {
+    const { showError } = await import("../js/notifications.js");
+    showError(result.error);
+    return;
+  }
+
+  const { showSuccess } = await import("../js/notifications.js");
+  showSuccess("Connexion réussie ! Redirection...");
+  setTimeout(() => {
+    window.location.href = "dashboard.html";
+  }, 1000);
+});
+
+window.retourTelephone = function() {
+  document.getElementById("connexionForm").style.display = 'block';
+  document.getElementById("otpForm").style.display = 'none';
+  document.getElementById("otpCode").value = '';
+};
+</script>
+
+
+</body>
+</html>
+
+

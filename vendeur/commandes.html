@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mes Commandes - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">🛍️ MAJAY</div>
+            <nav class="dashboard-nav" id="mainNav">
+                <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+                <a href="produits.html" class="nav-link">📦 Produits</a>
+                <a href="commandes.html" class="nav-link active">🛒 Commandes</a>
+                <a href="clients.html" class="nav-link">👥 Clients</a>
+                <a href="analytics.html" class="nav-link">📈 Analytics</a>
+                <a href="abonnements.html" class="nav-link">💳 Abonnements</a>
+                <a href="profil.html" class="nav-link">⚙️ Profil</a>
+            </nav>
+            <button onclick="window.authMajay.deconnexion()" style="background: none; border: none; cursor: pointer; font-size: 1.2em;">🚪</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <h1 style="font-size: 2em; margin-bottom: 30px;">Mes Commandes</h1>
+
+        <div style="background: white; border-radius: 16px; overflow: hidden;">
+            <table id="commandesTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Produits</th>
+                        <th>Total</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody id="commandesBody">
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #718096;">
+                            Chargement...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from "../js/config.js";
+        import { authMajay } from "../js/auth.js";
+
+        const session = authMajay.getSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        // Afficher les liens conditionnels selon le plan
+        const plan = session.subscription_plan || 'free';
+        if (plan === 'entreprise') {
+            const nav = document.getElementById('mainNav');
+            const equipeLink = document.createElement('a');
+            equipeLink.href = 'equipe.html';
+            equipeLink.className = 'nav-link';
+            equipeLink.textContent = '👥 Équipe';
+            nav.insertBefore(equipeLink, nav.lastElementChild);
+            
+            const multiLink = document.createElement('a');
+            multiLink.href = 'multi-boutiques.html';
+            multiLink.className = 'nav-link';
+            multiLink.textContent = '🏪 Multi-Boutiques';
+            nav.insertBefore(multiLink, nav.lastElementChild);
+        }
+
+        async function chargerCommandes() {
+            const { data, error } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('store_id', session.store_id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error(error);
+                return;
+            }
+
+            const tbody = document.getElementById('commandesBody');
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 60px; color: #718096;">
+                            <div style="font-size: 3em; margin-bottom: 15px;">🛒</div>
+                            <p>Aucune commande pour le moment</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = data.map(cmd => {
+                const itemsCount = Array.isArray(cmd.items) ? cmd.items.length : 0;
+                const statusClass = cmd.status === 'delivered' ? 'success' : 
+                                   cmd.status === 'confirmed' ? 'success' : 
+                                   cmd.status === 'cancelled' ? 'danger' : 'warning';
+                return `
+                <tr>
+                    <td>${new Date(cmd.created_at).toLocaleDateString('fr-FR')}</td>
+                    <td>${itemsCount} article(s)</td>
+                    <td style="font-weight: 700; color: #25D366;">${parseInt(cmd.total || 0).toLocaleString()} ${cmd.currency || 'XOF'}</td>
+                    <td><span class="badge badge-${statusClass}">${cmd.status || 'pending'}</span></td>
+                </tr>
+            `;
+            }).join('');
+        }
+
+        chargerCommandes();
+    </script>
+</body>
+</html>

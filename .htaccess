@@ -1,0 +1,27 @@
+# Configuration Apache pour le routage MAJAY
+# Si vous utilisez Apache, ce fichier gère le routage des boutiques
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Rediriger admin.site.com vers /admin/
+    RewriteCond %{HTTP_HOST} ^admin\.(.*)$ [NC]
+    RewriteRule ^(.*)$ /admin/$1 [L]
+    
+    # Si ce n'est pas un fichier existant, rediriger vers store-router.html
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !^/admin
+    RewriteCond %{REQUEST_URI} !^/vendeur
+    RewriteCond %{REQUEST_URI} !^/catalogue\.html
+    RewriteCond %{REQUEST_URI} !^/index\.html
+    RewriteCond %{REQUEST_URI} !^/test-.*\.html
+    RewriteRule ^(.*)$ /store-router.html [L]
+</IfModule>
+
+# Configuration pour les fichiers statiques
+<IfModule mod_mime.c>
+    AddType application/javascript js
+    AddType text/css css
+</IfModule>
+

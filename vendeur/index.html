@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendeur - MAJAY</title>
+    <script type="module">
+        import { authMajay } from '../js/auth.js';
+        
+        // Vérifier si le vendeur est connecté
+        const session = authMajay.getSession();
+        
+        if (!session) {
+            // Rediriger vers la page de connexion
+            window.location.href = 'connexion.html';
+        } else {
+            // Rediriger vers le dashboard
+            window.location.href = 'dashboard.html';
+        }
+    </script>
+</head>
+<body>
+    <div style="text-align: center; padding: 50px; font-family: sans-serif;">
+        <h1>Vérification de l'authentification...</h1>
+        <p>Redirection en cours...</p>
+    </div>
+</body>
+</html>
+

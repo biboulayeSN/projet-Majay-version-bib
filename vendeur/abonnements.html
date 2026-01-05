@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abonnements - MAJAY</title>
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .dashboard-page { background: #f7fafc; }
+        .dashboard-header {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .dashboard-header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dashboard-logo { font-size: 1.5em; font-weight: 900; color: #667eea; }
+        .dashboard-nav { display: flex; gap: 20px; }
+        .nav-link {
+            color: #718096;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+        .nav-link.active { background: #edf2f7; color: #667eea; }
+        .dashboard-container { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+        .plan-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">🛍️ MAJAY</div>
+            <nav class="dashboard-nav">
+                <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+                <a href="produits.html" class="nav-link">📦 Produits</a>
+                <a href="commandes.html" class="nav-link">🛒 Commandes</a>
+                <a href="abonnements.html" class="nav-link active">💳 Abonnements</a>
+                <a href="profil.html" class="nav-link">⚙️ Profil</a>
+            </nav>
+            <button onclick="window.authMajay.deconnexion()" style="background: none; border: none; cursor: pointer; font-size: 1.2em;">🚪</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <h1 style="font-size: 2em; margin-bottom: 30px;">Mon Abonnement</h1>
+
+        <div class="plan-card" id="currentPlan">
+            <div class="loader"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { subscriptionsUtils } from "../js/subscriptions.js";
+        import { authMajay } from "../js/auth.js";
+        import { ADMIN_PHONE } from "../js/config.js";
+
+        const session = authMajay.getSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        async function chargerPlan() {
+            try {
+                const result = await subscriptionsUtils.getCurrentPlan();
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                const plan = result.data;
+                const planDetails = plan.plan_details;
+                const planNames = { free: '🎁 FREE', pro: '⭐ PRO', entreprise: '🏢 ENTREPRISE' };
+
+                document.getElementById('currentPlan').innerHTML = `
+                    <h2 style="margin-bottom: 20px;">Plan actuel: ${planNames[plan.plan_name] || plan.plan_name}</h2>
+                    <p><strong>Prix:</strong> ${planDetails?.annual_price ? (planDetails.annual_price / 1000).toLocaleString() + ' FCFA/an' : 'Gratuit'}</p>
+                    <p><strong>Produits max:</strong> ${planDetails?.max_products === -1 ? 'Illimité' : planDetails?.max_products}</p>
+                    ${plan.expires_at ? `<p><strong>Expire le:</strong> ${new Date(plan.expires_at).toLocaleDateString('fr-FR')}</p>` : ''}
+                    <button onclick="upgradePlan()" class="btn-primary" style="margin-top: 20px;">🚀 Passer au plan supérieur</button>
+                `;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        window.upgradePlan = function() {
+            const msg = `Bonjour, je souhaite passer au plan supérieur.\n\nBoutique: ${session.store_name}\nTéléphone: ${session.phone}`;
+            window.open(`https://wa.me/${ADMIN_PHONE.replace(/\+/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+        };
+
+        chargerPlan();
+    </script>
+</body>
+</html>
+

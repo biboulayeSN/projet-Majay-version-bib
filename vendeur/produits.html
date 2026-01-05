@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mes Produits - MAJAY</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .modal-backdrop {
+            display: none;
+        }
+        .modal-backdrop.active {
+            display: block;
+        }
+        .modal {
+            display: none;
+        }
+        .modal.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="dashboard-page">
+    <header class="dashboard-header">
+        <div class="dashboard-header-content">
+            <div class="dashboard-logo">🛍️ MAJAY</div>
+            <nav class="dashboard-nav" id="mainNav">
+                <a href="dashboard.html" class="nav-link">📊 Dashboard</a>
+                <a href="produits.html" class="nav-link active">📦 Produits</a>
+                <a href="commandes.html" class="nav-link">🛒 Commandes</a>
+                <a href="clients.html" class="nav-link">👥 Clients</a>
+                <a href="analytics.html" class="nav-link">📈 Analytics</a>
+                <a href="abonnements.html" class="nav-link">💳 Abonnements</a>
+                <a href="profil.html" class="nav-link">⚙️ Profil</a>
+            </nav>
+            <button onclick="window.authMajay.deconnexion()" class="btn btn-outline btn-sm" title="Déconnexion">🚪 Déconnexion</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Mes Produits</h1>
+                <p class="page-subtitle"><span id="productCount">0</span> / <span id="productLimit">10</span> produits</p>
+            </div>
+            <button class="btn btn-primary btn-lg" onclick="ouvrirModalAjout()">+ Ajouter un produit</button>
+        </div>
+
+        <div class="products-grid" id="productsGrid">
+            <div style="grid-column: 1/-1; text-align: center; padding: var(--spacing-2xl);" class="fade-in">
+                <div class="loader"></div>
+                <p style="margin-top: var(--spacing-md); color: var(--color-text-light);">Chargement des produits...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL AJOUT/ÉDITION -->
+    <div class="modal-backdrop" id="productModalBackdrop"></div>
+    <div class="modal" id="productModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Ajouter un produit</h2>
+                <button class="modal-close" onclick="fermerModal()">&times;</button>
+            </div>
+            <form id="productForm" class="auth-form">
+                <input type="hidden" id="productId">
+                <div class="form-group">
+                    <label>Nom du produit *</label>
+                    <input type="text" id="productName" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="productDesc">
+                </div>
+                <div class="form-group">
+                    <label>Prix (FCFA) *</label>
+                    <input type="number" id="productPrice" required min="0">
+                </div>
+                <div class="form-group">
+                    <label>Catégorie *</label>
+                    <select id="productCategory" required>
+                        <option value="chaussures">👟 Chaussures</option>
+                        <option value="sacs">👜 Sacs</option>
+                        <option value="montres">⌚ Montres</option>
+                        <option value="accessoires">🕶️ Accessoires</option>
+                        <option value="electronique">📱 Électronique</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>URL de l'image</label>
+                    <input type="url" id="productImage" placeholder="https://...">
+                </div>
+                <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-lg);">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">💾 Enregistrer</button>
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="fermerModal()">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase } from "../js/config.js";
+        import { authMajay } from "../js/auth.js";
+
+        const session = authMajay.getSession();
+        if (!session) window.location.href = 'connexion.html';
+
+        // Afficher les liens conditionnels selon le plan
+        const plan = session.subscription_plan || 'free';
+        if (plan === 'entreprise') {
+            const nav = document.getElementById('mainNav');
+            const equipeLink = document.createElement('a');
+            equipeLink.href = 'equipe.html';
+            equipeLink.className = 'nav-link';
+            equipeLink.textContent = '👥 Équipe';
+            nav.insertBefore(equipeLink, nav.lastElementChild);
+            
+            const multiLink = document.createElement('a');
+            multiLink.href = 'multi-boutiques.html';
+            multiLink.className = 'nav-link';
+            multiLink.textContent = '🏪 Multi-Boutiques';
+            nav.insertBefore(multiLink, nav.lastElementChild);
+        }
+
+        let produits = [];
+        
+        // Récupérer la limite du plan
+        async function getProductLimit() {
+            const { data: store } = await supabase
+                .from('stores')
+                .select('subscription_plan')
+                .eq('id', session.store_id)
+                .single();
+            
+            if (!store) return 7;
+            
+            const { data: plan } = await supabase
+                .from('plans')
+                .select('max_products')
+                .eq('name', store.subscription_plan)
+                .single();
+            
+            return plan?.max_products === -1 ? 999999 : (plan?.max_products || 7);
+        }
+
+        const limite = await getProductLimit();
+
+        async function chargerProduits() {
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .eq('store_id', session.store_id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error(error);
+                return;
+            }
+
+            produits = data || [];
+            document.getElementById('productCount').textContent = produits.length;
+            document.getElementById('productLimit').textContent = limite;
+
+            if (produits.length === 0) {
+                document.getElementById('productsGrid').innerHTML = `
+                    <div class="empty-state" style="grid-column: 1/-1;">
+                        <div class="empty-state-icon">📦</div>
+                        <h3>Aucun produit</h3>
+                        <p>Ajoutez votre premier produit pour commencer à vendre !</p>
+                        <button onclick="ouvrirModalAjout()" class="btn btn-primary" style="margin-top: var(--spacing-md);">+ Ajouter mon premier produit</button>
+                    </div>
+                `;
+                return;
+            }
+
+            document.getElementById('productsGrid').innerHTML = produits.map((p, index) => {
+                const imageUrl = p.images && p.images.length > 0 ? p.images[0] : 'https://via.placeholder.com/300';
+                return `
+                <div class="product-card slide-up" style="animation-delay: ${index * 0.1}s;">
+                    <img src="${imageUrl}" class="product-image" alt="${p.name}" loading="lazy">
+                    <div class="product-info">
+                        <div class="product-name">${p.name}</div>
+                        ${p.description ? `<p style="color: var(--color-text-light); font-size: var(--font-size-sm); margin-bottom: var(--spacing-sm);">${p.description.substring(0, 60)}${p.description.length > 60 ? '...' : ''}</p>` : ''}
+                        <div class="product-price">${parseInt(p.price || 0).toLocaleString()} ${p.currency || 'XOF'}</div>
+                        <div class="product-actions">
+                            <button class="btn btn-primary btn-sm" onclick="window.editerProduit('${p.id}')" style="flex: 1;">✏️ Modifier</button>
+                            <button class="btn btn-danger btn-sm" onclick="window.supprimerProduit('${p.id}')" style="flex: 1;">🗑️ Supprimer</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+        window.editerProduit = function(id) {
+            const produit = produits.find(p => p.id === id);
+            document.getElementById('modalTitle').textContent = 'Modifier le produit';
+            document.getElementById('productId').value = produit.id;
+            document.getElementById('productName').value = produit.name;
+            document.getElementById('productDesc').value = produit.description || '';
+            document.getElementById('productPrice').value = produit.price;
+            document.getElementById('productCategory').value = produit.category || '';
+            document.getElementById('productImage').value = (produit.images && produit.images.length > 0) ? produit.images[0] : '';
+            document.getElementById('productModal').classList.add('active');
+            document.getElementById('productModalBackdrop').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        };
+
+    window.supprimerProduit = async function(id) {
+        if (!confirm('Voulez-vous vraiment supprimer ce produit ?')) return;
+
+        // Soft delete : mettre is_active à false
+        const { error } = await supabase
+            .from('products')
+            .update({ is_active: false })
+            .eq('id', id);
+
+        if (error) {
+            const { showError } = await import('../js/notifications.js');
+            showError('Erreur : ' + error.message);
+        } else {
+            const { showSuccess } = await import('../js/notifications.js');
+            showSuccess('Produit supprimé avec succès !');
+            chargerProduits();
+        }
+    };
+
+    window.fermerModal = function() {
+        document.getElementById('productModal').classList.remove('active');
+        document.getElementById('productModalBackdrop').classList.remove('active');
+        document.body.style.overflow = 'auto';
+    };
+
+    window.ouvrirModalAjout = async function() {
+        const currentLimit = await getProductLimit();
+        if (produits.length >= currentLimit) {
+            const { showError } = await import('../js/notifications.js');
+            showError(`Limite atteinte : ${currentLimit} produits pour le plan ${(session.subscription_plan || 'free').toUpperCase()}`);
+            return;
+        }
+        document.getElementById('modalTitle').textContent = 'Ajouter un produit';
+        document.getElementById('productForm').reset();
+        document.getElementById('productId').value = '';
+        document.getElementById('productModal').classList.add('active');
+        document.getElementById('productModalBackdrop').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    };
+
+        document.getElementById('productForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('productId').value;
+            const imageUrl = document.getElementById('productImage').value.trim();
+            
+            const data = {
+                name: document.getElementById('productName').value.trim(),
+                description: document.getElementById('productDesc').value.trim() || null,
+                price: parseFloat(document.getElementById('productPrice').value),
+                category: document.getElementById('productCategory').value,
+                images: imageUrl ? [imageUrl] : [],
+                stock: 99, // Stock par défaut
+                currency: 'XOF',
+                is_active: true
+            };
+
+            if (id) {
+                // Modification
+                const { error } = await supabase
+                    .from('products')
+                    .update(data)
+                    .eq('id', id);
+
+            if (error) {
+                const { showError } = await import('../js/notifications.js');
+                showError(error.message);
+            } else {
+                const { showSuccess } = await import('../js/notifications.js');
+                showSuccess('Produit modifié avec succès !');
+                fermerModal();
+                chargerProduits();
+            }
+        } else {
+            // Ajout
+            const { error } = await supabase
+                .from('products')
+                .insert({ ...data, store_id: session.store_id });
+
+            if (error) {
+                const { showError } = await import('../js/notifications.js');
+                showError(error.message);
+            } else {
+                const { showSuccess } = await import('../js/notifications.js');
+                showSuccess('Produit ajouté avec succès !');
+                fermerModal();
+                chargerProduits();
+            }
+        }
+        });
+
+    chargerProduits();
+</script>
+</body>
+</html>
+````

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAJAY - Catalogue</title>
+    <!-- Ce fichier sert de routeur pour les boutiques -->
+    <!-- Il redirige automatiquement vers le catalogue avec le bon slug -->
+    <script type="module">
+        // Extraire le slug depuis l'URL
+        const path = window.location.pathname;
+        let slug = path.replace(/^\//, '').replace(/\.html$/, '');
+        
+        // Exclure les pages système
+        const systemPages = ['index', 'catalogue', 'test-connection', 'test-complet', 'store-router', 'admin', 'vendeur'];
+        if (systemPages.some(page => slug.startsWith(page))) {
+            slug = null;
+        }
+        
+        if (slug && slug !== '') {
+            // Rediriger vers le catalogue avec le slug
+            window.location.href = `/catalogue.html?shop=${slug}`;
+        } else {
+            // Si pas de slug, rediriger vers la page d'accueil
+            window.location.href = '/';
+        }
+    </script>
+</head>
+<body>
+    <div style="text-align: center; padding: 50px; font-family: sans-serif;">
+        <h1>Chargement de la boutique...</h1>
+        <p>Redirection en cours...</p>
+    </div>
+</body>
+</html>
+
