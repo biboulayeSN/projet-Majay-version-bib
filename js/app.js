@@ -1,10 +1,12 @@
 import { supabase, getStoreSlug } from "./config.js";
+import { getDemoStore, isDemoStore } from "./demo-data.js";
 
 // ==================== VARIABLES GLOBALES ====================
 let produits = [];
 let panier = [];
 let categorieActive = 'tous';
 let storeInfo = {};
+let isDemo = false;
 
 // ==================== CHARGEMENT DES DONNÉES ====================
 async function chargerProduits() {
@@ -15,7 +17,41 @@ async function chargerProduits() {
             return;
         }
 
-        // Récupérer la boutique par slug
+        // Vérifier si c'est une boutique de démonstration
+        if (isDemoStore(slug)) {
+            isDemo = true;
+            const demoStore = getDemoStore(slug);
+            
+            if (!demoStore) {
+                afficherErreur("Boutique de démonstration introuvable");
+                return;
+            }
+
+            storeInfo = {
+                name: demoStore.name,
+                whatsapp: demoStore.whatsapp,
+                slug: slug
+            };
+
+            produits = demoStore.products;
+
+            // Mettre à jour le header
+            document.querySelector('.logo').textContent = `🛍️ ${demoStore.name}`;
+            document.querySelector('.tagline').textContent = '✨ Boutique de démonstration - Exemples de produits';
+
+            // Ajouter un badge de démo
+            const header = document.querySelector('.header');
+            const demoBadge = document.createElement('div');
+            demoBadge.style.cssText = 'background: #25D366; color: white; padding: 10px 20px; text-align: center; font-weight: 700;';
+            demoBadge.textContent = '🎭 Mode Démonstration - Ces produits sont des exemples';
+            header.insertAdjacentElement('afterend', demoBadge);
+
+            afficherProduits(categorieActive);
+            initialiserEvenements();
+            return;
+        }
+
+        // Récupérer la boutique par slug (mode normal)
         const { data: store, error: storeError } = await supabase
             .from("stores")
             .select("*")
@@ -67,6 +103,9 @@ async function chargerProduits() {
 
 // ==================== ENREGISTREMENT CLICKS POUR ANALYTICS ====================
 async function enregistrerClickEvent(productId, storeId, eventType) {
+    // Ne pas enregistrer d'analytics en mode démo
+    if (isDemo) return;
+    
     try {
         // Récupérer la ville depuis l'IP (simplifié - en production utiliser un service)
         const customerCity = 'Unknown'; // À améliorer avec un service de géolocalisation
