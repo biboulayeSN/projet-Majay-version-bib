@@ -35,6 +35,13 @@ async function chargerProduits() {
 
             produits = demoStore.products;
 
+            // Charger le panier depuis localStorage en mode démo
+            const savedPanier = localStorage.getItem('demo_panier');
+            if (savedPanier) {
+                panier = JSON.parse(savedPanier);
+                mettreAJourBadgePanier();
+            }
+
             // Mettre à jour le header
             document.querySelector('.logo').textContent = `🛍️ ${demoStore.name}`;
             document.querySelector('.tagline').textContent = '✨ Boutique de démonstration - Exemples de produits';
@@ -210,6 +217,12 @@ function ajouterAuPanier(idProduit, bouton) {
             ...produit,
             quantite: 1
         });
+    }
+
+    // En mode démo, sauvegarder dans localStorage
+    if (isDemo) {
+        localStorage.setItem('demo_panier', JSON.stringify(panier));
+        localStorage.setItem('demo_store', JSON.stringify(storeInfo));
     }
 
     // Enregistrer l'événement "cart_add" (sauf en mode démo)
@@ -413,21 +426,22 @@ function initialiserFiltres() {
 
 // ==================== MODAL ====================
 function ouvrirPanier() {
+    // En mode démo, rediriger vers la page panier
+    if (isDemo) {
+        localStorage.setItem('demo_panier', JSON.stringify(panier));
+        localStorage.setItem('demo_store', JSON.stringify(storeInfo));
+        window.location.href = 'panier-demo.html';
+        return;
+    }
+
+    // En mode normal, ouvrir la modal
     afficherPanier();
     
-    // Adapter le texte du bouton selon le mode
     const whatsappBtn = document.getElementById('whatsappBtn');
-    if (isDemo) {
-        whatsappBtn.innerHTML = `
-            <span>🚀</span>
-            <span>S'inscrire pour commander</span>
-        `;
-    } else {
-        whatsappBtn.innerHTML = `
-            <span>📲</span>
-            <span>Commander sur WhatsApp</span>
-        `;
-    }
+    whatsappBtn.innerHTML = `
+        <span>📲</span>
+        <span>Commander sur WhatsApp</span>
+    `;
     
     document.getElementById('cartModal').classList.add('active');
     document.body.style.overflow = 'hidden';
