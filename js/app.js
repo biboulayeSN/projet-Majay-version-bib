@@ -303,6 +303,20 @@ function calculerTotal() {
     return panier.reduce((sum, item) => sum + (parseInt(item.price) * item.quantite), 0);
 }
 
+// ==================== MODAL CONTACT CLIENT ====================
+function ouvrirModalContact() {
+    fermerPanier();
+    document.getElementById('contactModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function fermerModalContact() {
+    document.getElementById('contactModal').classList.remove('active');
+    document.body.style.overflow = 'auto';
+    // Réinitialiser le formulaire
+    document.getElementById('contactForm').reset();
+}
+
 // ==================== ENVOI WHATSAPP ====================
 async function envoyerVersWhatsApp() {
     if (panier.length === 0) {
@@ -326,7 +340,112 @@ async function envoyerVersWhatsApp() {
         return;
     }
 
+    // Ouvrir le modal de contact pour collecter les infos du client
+    ouvrirModalContact();
+}
+
+async function finaliserCommande(event) {
+    event.preventDefault();
+    
+    const firstName = document.getElementById('clientFirstName').value.trim();
+    const lastName = document.getElementById('clientLastName').value.trim();
+    const phone = document.getElementById('clientPhone').value.trim();
+    const address = document.getElementById('clientAddress').value.trim();
+
+    if (!firstName || !phone) {
+        afficherNotification('❌ Veuillez remplir les champs obligatoires');
+        return;
+    }
+
+    // Valider le format du numéro
+    let phoneFormatted = phone.replace(/\s/g, '');
+    if (!phoneFormatted.startsWith('+')) {
+        if (phoneFormatted.startsWith('00')) {
+            phoneFormatted = '+' + phoneFormatted.substring(2);
+        } else if (phoneFormatted.startsWith('221')) {
+            phoneFormatted = '+' + phoneFormatted;
+        } else if (phoneFormatted.length === 9) {
+            phoneFormatted = '+221' + phoneFormatted;
+        } else {
+            afficherNotification('❌ Format de numéro invalide. Utilisez: 771234567 ou +221771234567');
+            return;
+        }
+    }
+
+    try {
+        // Enregistrer le client dans le CRM
+        await enregistrerClientCRM({
+            firstName,
+            lastName,
+            phone: phoneFormatted,
+            address
+        });
+
+        // Préparer le message WhatsApp
+        await envoyerMessageWhatsApp(phoneFormatted, firstName);
+        
+    } catch (error) {
+        console.error('Erreur lors de la finalisation:', error);
+        afficherNotification('❌ Erreur lors de l\'enregistrement. Commande annulée.');
+    }
+}
+
+async function enregistrerClientCRM(clientData) {
+    try {
+        // Calculer le total de la commande
+        const total = calculerTotal();
+        
+        // Vérifier si le client existe déjà
+        const { data: existingCustomer } = await supabase
+            .from('customers')
+            .select('id, total_orders, total_spent')
+            .eq('store_id', storeInfo.id)
+            .eq('phone', clientData.phone)
+            .maybeSingle();
+
+        if (existingCustomer) {
+            // Mettre à jour le client existant
+            await supabase
+                .from('customers')
+                .update({
+                    first_name: clientData.firstName,
+                    last_name: clientData.lastName || existingCustomer.last_name,
+                    address: clientData.address || existingCustomer.address,
+                    total_orders: existingCustomer.total_orders + 1,
+                    total_spent: existingCustomer.total_spent + total,
+                    last_order_date: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existingCustomer.id);
+        } else {
+            // Créer un nouveau client
+            await supabase
+                .from('customers')
+                .insert({
+                    store_id: storeInfo.id,
+                    first_name: clientData.firstName,
+                    last_name: clientData.lastName || '',
+                    phone: clientData.phone,
+                    address: clientData.address || '',
+                    total_orders: 1,
+                    total_spent: total,
+                    last_order_date: new Date().toISOString(),
+                    customer_segment: 'new'
+                });
+        }
+
+        afficherNotification('✅ Informations enregistrées');
+    } catch (error) {
+        console.error('Erreur enregistrement client:', error);
+        // On continue quand même vers WhatsApp même si l'enregistrement échoue
+    }
+}
+
+async function envoyerMessageWhatsApp(clientPhone, clientName) {
+    // Préparer le message WhatsApp
     let message = `🛍️ *NOUVELLE COMMANDE - ${storeInfo.name.toUpperCase()}*\n\n`;
+    message += `👤 *Client:* ${clientName}\n`;
+    message += `📞 *Téléphone:* ${clientPhone}\n\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     const items = [];
@@ -355,19 +474,22 @@ async function envoyerVersWhatsApp() {
         // Générer un numéro de commande unique
         const orderNumber = 'CMD-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
 
-        // Créer ou récupérer le client (simplifié - en production demander les infos)
-        let customerId = null;
-        // Pour l'instant, on crée une commande sans customer_id
-        // En production, on devrait demander le nom et téléphone du client
+        // Récupérer l'ID du client depuis la base
+        const { data: customer } = await supabase
+            .from('customers')
+            .select('id')
+            .eq('store_id', storeInfo.id)
+            .eq('phone', clientPhone)
+            .maybeSingle();
 
         const { data: orderData, error: orderError } = await supabase
             .from('orders')
             .insert({
                 store_id: storeInfo.id,
-                customer_id: customerId,
+                customer_id: customer?.id || null,
                 order_number: orderNumber,
-                customer_name: 'Client', // À améliorer
-                customer_phone: '+221000000000', // À améliorer
+                customer_name: clientName,
+                customer_phone: clientPhone,
                 items: items,
                 subtotal: total,
                 delivery_fee: 0,
@@ -375,7 +497,7 @@ async function envoyerVersWhatsApp() {
                 discount_amount: 0,
                 currency: storeInfo.currency || 'XOF',
                 status: 'pending',
-                source: 'direct' // ou 'whatsapp', 'telegram'
+                source: 'whatsapp'
             })
             .select()
             .single();
@@ -393,20 +515,22 @@ async function envoyerVersWhatsApp() {
     }
 
     // Ouvrir WhatsApp
-    const numeroWhatsApp = (storeInfo.whatsapp_number || '').replace(/\s/g, '').replace(/\+/g, '');
+    const numeroWhatsApp = (storeInfo.whatsapp_number || storeInfo.whatsapp || '').replace(/\s/g, '').replace(/\+/g, '');
     if (!numeroWhatsApp) {
-        const { showError } = await import('./notifications.js');
-        showError('Numéro WhatsApp non configuré pour cette boutique');
+        afficherNotification('❌ Numéro WhatsApp non configuré pour cette boutique');
         return;
     }
 
     const url = `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
 
-    // Vider le panier après envoi
+    // Fermer le modal et vider le panier
+    fermerModalContact();
     panier = [];
     mettreAJourBadgePanier();
     afficherPanier();
+    
+    afficherNotification('✅ Commande envoyée avec succès !');
 }
 
 // ==================== FILTRES ====================
@@ -459,11 +583,17 @@ function initialiserEvenements() {
     document.getElementById('modalOverlay').addEventListener('click', fermerPanier);
     document.getElementById('whatsappBtn').addEventListener('click', envoyerVersWhatsApp);
     
+    // Événements pour le modal de contact
+    document.getElementById('contactCloseBtn').addEventListener('click', fermerModalContact);
+    document.getElementById('contactOverlay').addEventListener('click', fermerModalContact);
+    document.getElementById('contactForm').addEventListener('submit', finaliserCommande);
+    
     initialiserFiltres();
     
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             fermerPanier();
+            fermerModalContact();
         }
     });
 }

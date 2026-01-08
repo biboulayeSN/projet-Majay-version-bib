@@ -85,6 +85,91 @@
         </div>
     </div>
 
+    <!-- MODAL CONTACT CLIENT -->
+    <div class="modal" id="contactModal">
+        <div class="modal-overlay" id="contactOverlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📝 Vos coordonnées</h2>
+                <button class="close-btn" id="contactCloseBtn">&times;</button>
+            </div>
+            
+            <div style="padding: 30px;">
+                <p style="color: #718096; margin-bottom: 25px; line-height: 1.6;">
+                    Pour finaliser votre commande, merci de nous fournir vos coordonnées. 
+                    Elles seront utilisées uniquement pour traiter votre commande.
+                </p>
+
+                <form id="contactForm">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #2d3748;">
+                            Prénom *
+                        </label>
+                        <input 
+                            type="text" 
+                            id="clientFirstName" 
+                            required
+                            placeholder="Ex: Mamadou"
+                            style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 1em; transition: all 0.3s;"
+                            onfocus="this.style.borderColor='#25D366'"
+                            onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #2d3748;">
+                            Nom
+                        </label>
+                        <input 
+                            type="text" 
+                            id="clientLastName" 
+                            placeholder="Ex: Diallo"
+                            style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 1em; transition: all 0.3s;"
+                            onfocus="this.style.borderColor='#25D366'"
+                            onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #2d3748;">
+                            Téléphone / WhatsApp *
+                        </label>
+                        <input 
+                            type="tel" 
+                            id="clientPhone" 
+                            required
+                            placeholder="Ex: 771234567 ou +221771234567"
+                            style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 1em; transition: all 0.3s;"
+                            onfocus="this.style.borderColor='#25D366'"
+                            onblur="this.style.borderColor='#e2e8f0'">
+                        <small style="color: #718096; font-size: 0.85em; display: block; margin-top: 5px;">
+                            Format: 771234567 ou +221771234567
+                        </small>
+                    </div>
+
+                    <div style="margin-bottom: 25px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #2d3748;">
+                            Adresse de livraison
+                        </label>
+                        <textarea 
+                            id="clientAddress" 
+                            rows="2"
+                            placeholder="Ex: Quartier Liberté 6, près de la station Total"
+                            style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 1em; resize: vertical; transition: all 0.3s;"
+                            onfocus="this.style.borderColor='#25D366'"
+                            onblur="this.style.borderColor='#e2e8f0'"></textarea>
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        class="whatsapp-btn" 
+                        style="width: 100%; margin-top: 10px;">
+                        <span>✅</span>
+                        <span>Valider et commander</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- FOOTER -->
     <footer class="footer">
         <p>&copy; 2024 Majay - Tous droits réservés</p>
