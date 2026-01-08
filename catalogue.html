@@ -132,16 +132,18 @@
                         <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #2d3748;">
                             Téléphone / WhatsApp *
                         </label>
-                        <input 
-                            type="tel" 
-                            id="clientPhone" 
-                            required
-                            placeholder="Ex: 771234567 ou +221771234567"
-                            style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 1em; transition: all 0.3s;"
-                            onfocus="this.style.borderColor='#25D366'"
-                            onblur="this.style.borderColor='#e2e8f0'">
-                        <small style="color: #718096; font-size: 0.85em; display: block; margin-top: 5px;">
-                            Format: 771234567 ou +221771234567
+                        <div style="position: relative;">
+                            <input 
+                                type="tel" 
+                                id="clientPhone" 
+                                required
+                                placeholder="Ex: 77 123 45 67"
+                                style="width: 100%; padding: 14px; padding-left: 60px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 1em; transition: all 0.3s;"
+                                onfocus="this.style.borderColor='#25D366'"
+                                onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <small id="clientPhoneHint" style="color: #718096; font-size: 0.85em; display: block; margin-top: 5px;">
+                            Le préfixe est détecté automatiquement
                         </small>
                     </div>
 

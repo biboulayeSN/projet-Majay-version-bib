@@ -1,5 +1,6 @@
 import { supabase, getStoreSlug } from "./config.js";
 import { getDemoStore, isDemoStore } from "./demo-data.js";
+import { detectUserLocation, formatPhoneWithPrefix } from "./geolocation.js";
 
 // ==================== VARIABLES GLOBALES ====================
 let produits = [];
@@ -304,10 +305,48 @@ function calculerTotal() {
 }
 
 // ==================== MODAL CONTACT CLIENT ====================
-function ouvrirModalContact() {
+async function ouvrirModalContact() {
     fermerPanier();
     document.getElementById('contactModal').classList.add('active');
     document.body.style.overflow = 'hidden';
+    
+    // Initialiser la détection de géolocalisation pour le téléphone
+    try {
+        const location = await detectUserLocation();
+        const phoneInput = document.getElementById('clientPhone');
+        
+        // Afficher le préfixe
+        let phonePrefix = document.getElementById('clientPhonePrefix');
+        if (!phonePrefix) {
+            phonePrefix = document.createElement('div');
+            phonePrefix.id = 'clientPhonePrefix';
+            phonePrefix.style.cssText = `
+                position: absolute;
+                left: 15px;
+                top: 50%;
+                transform: translateY(-50%);
+                font-weight: 700;
+                color: #25D366;
+                font-size: 1em;
+                pointer-events: none;
+                z-index: 1;
+            `;
+            phoneInput.parentElement.insertBefore(phonePrefix, phoneInput);
+        }
+        phonePrefix.textContent = location.prefix;
+        
+        // Mettre à jour le hint
+        document.getElementById('clientPhoneHint').innerHTML = `
+            <span style="color: #25D366;">✓</span> Pays détecté: ${location.flag} ${location.countryName}
+        `;
+        
+        // Stocker la localisation pour l'utiliser lors de la soumission
+        phoneInput.dataset.countryCode = location.country;
+        phoneInput.dataset.prefix = location.prefix;
+        
+    } catch (error) {
+        console.error('Erreur détection localisation:', error);
+    }
 }
 
 function fermerModalContact() {
@@ -349,7 +388,7 @@ async function finaliserCommande(event) {
     
     const firstName = document.getElementById('clientFirstName').value.trim();
     const lastName = document.getElementById('clientLastName').value.trim();
-    const phone = document.getElementById('clientPhone').value.trim();
+    let phone = document.getElementById('clientPhone').value.trim();
     const address = document.getElementById('clientAddress').value.trim();
 
     if (!firstName || !phone) {
@@ -357,32 +396,34 @@ async function finaliserCommande(event) {
         return;
     }
 
-    // Valider le format du numéro
-    let phoneFormatted = phone.replace(/\s/g, '');
-    if (!phoneFormatted.startsWith('+')) {
-        if (phoneFormatted.startsWith('00')) {
-            phoneFormatted = '+' + phoneFormatted.substring(2);
-        } else if (phoneFormatted.startsWith('221')) {
-            phoneFormatted = '+' + phoneFormatted;
-        } else if (phoneFormatted.length === 9) {
-            phoneFormatted = '+221' + phoneFormatted;
-        } else {
-            afficherNotification('❌ Format de numéro invalide. Utilisez: 771234567 ou +221771234567');
-            return;
-        }
+    // Récupérer le préfixe détecté
+    const phoneInput = document.getElementById('clientPhone');
+    const prefix = phoneInput.dataset.prefix || '+221';
+    const countryCode = phoneInput.dataset.countryCode || 'SN';
+
+    // Formater le numéro avec le préfixe
+    phone = phone.replace(/\s/g, '').replace(/^0+/, '');
+    if (!phone.startsWith('+')) {
+        phone = prefix + phone;
     }
 
     try {
-        // Enregistrer le client dans le CRM
+        // Récupérer la localisation pour le CRM
+        const location = await detectUserLocation();
+        
+        // Enregistrer le client dans le CRM avec géolocalisation
         await enregistrerClientCRM({
             firstName,
             lastName,
-            phone: phoneFormatted,
-            address
+            phone: phone,
+            address,
+            country: countryCode,
+            city: location.city,
+            region: location.region
         });
 
         // Préparer le message WhatsApp
-        await envoyerMessageWhatsApp(phoneFormatted, firstName);
+        await envoyerMessageWhatsApp(phone, firstName);
         
     } catch (error) {
         console.error('Erreur lors de la finalisation:', error);
@@ -411,6 +452,8 @@ async function enregistrerClientCRM(clientData) {
                     first_name: clientData.firstName,
                     last_name: clientData.lastName || existingCustomer.last_name,
                     address: clientData.address || existingCustomer.address,
+                    city: clientData.city || existingCustomer.city,
+                    region: clientData.region || existingCustomer.region,
                     total_orders: existingCustomer.total_orders + 1,
                     total_spent: existingCustomer.total_spent + total,
                     last_order_date: new Date().toISOString(),
@@ -427,6 +470,8 @@ async function enregistrerClientCRM(clientData) {
                     last_name: clientData.lastName || '',
                     phone: clientData.phone,
                     address: clientData.address || '',
+                    city: clientData.city || 'Unknown',
+                    region: clientData.region || 'Unknown',
                     total_orders: 1,
                     total_spent: total,
                     last_order_date: new Date().toISOString(),

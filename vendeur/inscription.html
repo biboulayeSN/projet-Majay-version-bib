@@ -40,9 +40,16 @@
                 </div>
 
                 <div class="form-group">
+                    <label>Pays *</label>
+                    <div id="countrySelectContainer"></div>
+                </div>
+
+                <div class="form-group">
                     <label>Numéro de téléphone *</label>
-                    <input type="tel" id="telephone" required placeholder="+221 77 123 45 67">
-                    <span class="form-hint">Format : +221 77 123 45 67</span>
+                    <div style="position: relative;">
+                        <input type="tel" id="telephone" required placeholder="77 123 45 67" style="padding-left: 60px;">
+                    </div>
+                    <span class="form-hint" id="phoneHint">Le préfixe est détecté automatiquement selon votre pays</span>
                 </div>
 
                 <div class="form-group">
@@ -88,6 +95,60 @@
     </div>
 <script type="module">
 import { authMajay } from "../js/auth.js";
+import { detectUserLocation, createCountrySelector, formatPhoneWithPrefix, saveUserLocation } from "../js/geolocation.js";
+
+// Variables globales pour la géolocalisation
+let userLocation = null;
+
+// Initialiser la détection de géolocalisation au chargement
+(async function initGeolocation() {
+    try {
+        // Détecter la localisation
+        userLocation = await detectUserLocation();
+        
+        // Créer le sélecteur de pays
+        const countryContainer = document.getElementById('countrySelectContainer');
+        countryContainer.innerHTML = createCountrySelector(userLocation.country);
+        
+        // Afficher le préfixe dans le champ téléphone
+        const phoneInput = document.getElementById('telephone');
+        const phonePrefix = document.createElement('div');
+        phonePrefix.id = 'phonePrefix';
+        phonePrefix.style.cssText = `
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-weight: 700;
+            color: #25D366;
+            font-size: 1em;
+            pointer-events: none;
+            z-index: 1;
+        `;
+        phonePrefix.textContent = userLocation.prefix;
+        phoneInput.parentElement.insertBefore(phonePrefix, phoneInput);
+        
+        // Mettre à jour le placeholder
+        phoneInput.placeholder = 'Ex: 77 123 45 67';
+        
+        // Mettre à jour le hint
+        document.getElementById('phoneHint').innerHTML = `
+            <span style="color: #25D366;">✓</span> Pays détecté: ${userLocation.flag} ${userLocation.countryName}
+        `;
+        
+        // Gérer le changement de pays
+        const countrySelector = document.getElementById('countrySelector');
+        countrySelector.addEventListener('change', (e) => {
+            const selected = e.target.selectedOptions[0];
+            const newPrefix = selected.dataset.prefix;
+            phonePrefix.textContent = newPrefix;
+            phoneInput.style.paddingLeft = `${newPrefix.length * 12 + 20}px`;
+        });
+        
+    } catch (error) {
+        console.error('Erreur initialisation géolocalisation:', error);
+    }
+})();
 
 document.getElementById('inscriptionForm').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -98,12 +159,41 @@ document.getElementById('inscriptionForm').addEventListener('submit', async func
     btn.querySelector('.btn-loader').style.display = 'inline';
 
     try {
+        // Récupérer les valeurs
+        let telephone = document.getElementById('telephone').value.trim();
+        const whatsapp = document.getElementById('whatsapp').value.trim() || telephone;
+        
+        // Formater le numéro avec le préfixe du pays sélectionné
+        const countrySelector = document.getElementById('countrySelector');
+        if (countrySelector) {
+            const selectedCountry = countrySelector.value;
+            const selectedPrefix = countrySelector.selectedOptions[0].dataset.prefix;
+            
+            // Ajouter le préfixe si nécessaire
+            if (!telephone.startsWith('+')) {
+                telephone = selectedPrefix + telephone.replace(/^0+/, '');
+            }
+            
+            // Sauvegarder la localisation pour analytics
+            if (userLocation) {
+                localStorage.setItem('user_signup_location', JSON.stringify({
+                    country: selectedCountry,
+                    city: userLocation.city,
+                    region: userLocation.region,
+                    latitude: userLocation.latitude,
+                    longitude: userLocation.longitude,
+                    ip: userLocation.ip,
+                    timestamp: Date.now()
+                }));
+            }
+        }
+        
         const result = await authMajay.inscrireVendeur({
             nom: document.getElementById('nom').value.trim(),
             slug: document.getElementById('slug').value.trim(),
             full_name: document.getElementById('full_name').value.trim(),
-            telephone: document.getElementById('telephone').value.trim(),
-            whatsapp: document.getElementById('whatsapp').value.trim() || document.getElementById('telephone').value.trim()
+            telephone: telephone,
+            whatsapp: whatsapp
         });
 
         btn.disabled = false;
