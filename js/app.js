@@ -182,7 +182,7 @@ function afficherProduits(categorie) {
     // Ajouter les événements sur les boutons
     document.querySelectorAll('.add-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            const id = this.dataset.id;
+            const id = parseInt(this.dataset.id);
             ajouterAuPanier(id, this);
         });
     });
@@ -205,8 +205,10 @@ function ajouterAuPanier(idProduit, bouton) {
         });
     }
 
-    // Enregistrer l'événement "cart_add"
-    enregistrerClickEvent(idProduit, storeInfo.id, 'cart_add');
+    // Enregistrer l'événement "cart_add" (sauf en mode démo)
+    if (!isDemo && storeInfo.id) {
+        enregistrerClickEvent(idProduit, storeInfo.id, 'cart_add');
+    }
 
     mettreAJourBadgePanier();
     animerBoutonAjout(bouton);
