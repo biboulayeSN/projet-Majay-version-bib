@@ -152,10 +152,17 @@ function afficherProduits(categorie) {
     }
 
     grid.innerHTML = produitsFiltres.map(produit => {
-        // Utiliser la première image du tableau images
-        const imageUrl = produit.images && produit.images.length > 0 
-            ? produit.images[0] 
-            : 'https://via.placeholder.com/300';
+        // Gérer les images pour mode normal (images array) et mode démo (image_url string)
+        let imageUrl;
+        if (isDemo) {
+            imageUrl = produit.image_url || 'https://via.placeholder.com/300';
+        } else {
+            imageUrl = produit.images && produit.images.length > 0 
+                ? produit.images[0] 
+                : 'https://via.placeholder.com/300';
+        }
+
+        const currency = produit.currency || 'FCFA';
 
         return `
         <div class="product-card" data-id="${produit.id}">
@@ -169,7 +176,7 @@ function afficherProduits(categorie) {
                 <h3 class="product-name">${produit.name}</h3>
                 <p class="product-desc">${produit.description || ''}</p>
                 <div class="product-footer">
-                    <span class="product-price">${formaterPrix(produit.price)} ${produit.currency || 'XOF'}</span>
+                    <span class="product-price">${formaterPrix(produit.price)} ${currency}</span>
                     <button class="add-btn" data-id="${produit.id}">
                         <span class="btn-text">+ Ajouter</span>
                     </button>
@@ -244,6 +251,7 @@ function mettreAJourBadgePanier() {
 function afficherPanier() {
     const container = document.getElementById('cartItems');
     const totalEl = document.getElementById('totalAmount');
+    const currency = isDemo ? 'FCFA' : (storeInfo.currency || 'XOF');
 
     if (panier.length === 0) {
         container.innerHTML = `
@@ -252,7 +260,7 @@ function afficherPanier() {
                 <p class="cart-empty-text">Votre panier est vide</p>
             </div>
         `;
-        totalEl.textContent = '0 XOF';
+        totalEl.textContent = `0 ${currency}`;
         return;
     }
 
@@ -260,7 +268,7 @@ function afficherPanier() {
         <div class="cart-item">
             <div class="cart-item-info">
                 <div class="cart-item-name">${item.name} × ${item.quantite}</div>
-                <div class="cart-item-price">${formaterPrix(parseInt(item.price) * item.quantite)} ${item.currency || 'XOF'}</div>
+                <div class="cart-item-price">${formaterPrix(parseInt(item.price) * item.quantite)} ${currency}</div>
             </div>
             <button class="remove-btn" data-id="${item.id}">✕</button>
         </div>
@@ -269,12 +277,13 @@ function afficherPanier() {
     // Ajouter événements suppression
     document.querySelectorAll('.remove-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            retirerDuPanier(this.dataset.id);
+            const id = parseInt(this.dataset.id);
+            retirerDuPanier(id);
         });
     });
 
     const total = calculerTotal();
-    totalEl.textContent = `${formaterPrix(total)} ${storeInfo.currency || 'XOF'}`;
+    totalEl.textContent = `${formaterPrix(total)} ${currency}`;
 }
 
 function calculerTotal() {
@@ -284,8 +293,23 @@ function calculerTotal() {
 // ==================== ENVOI WHATSAPP ====================
 async function envoyerVersWhatsApp() {
     if (panier.length === 0) {
-        const { showError } = await import('./notifications.js');
-        showError('Votre panier est vide !');
+        afficherNotification('❌ Votre panier est vide !');
+        return;
+    }
+
+    // MODE DÉMO : Rediriger vers l'inscription au lieu de WhatsApp
+    if (isDemo) {
+        const totalItems = panier.reduce((sum, item) => sum + item.quantite, 0);
+        const confirmation = confirm(
+            `🎭 MODE DÉMONSTRATION\n\n` +
+            `Vous avez ${totalItems} article(s) dans votre panier.\n\n` +
+            `Pour passer une vraie commande, vous devez créer votre compte vendeur.\n\n` +
+            `Voulez-vous vous inscrire maintenant ?`
+        );
+        
+        if (confirmation) {
+            window.location.href = 'vendeur/inscription.html';
+        }
         return;
     }
 
@@ -390,6 +414,21 @@ function initialiserFiltres() {
 // ==================== MODAL ====================
 function ouvrirPanier() {
     afficherPanier();
+    
+    // Adapter le texte du bouton selon le mode
+    const whatsappBtn = document.getElementById('whatsappBtn');
+    if (isDemo) {
+        whatsappBtn.innerHTML = `
+            <span>🚀</span>
+            <span>S'inscrire pour commander</span>
+        `;
+    } else {
+        whatsappBtn.innerHTML = `
+            <span>📲</span>
+            <span>Commander sur WhatsApp</span>
+        `;
+    }
+    
     document.getElementById('cartModal').classList.add('active');
     document.body.style.overflow = 'hidden';
 }
