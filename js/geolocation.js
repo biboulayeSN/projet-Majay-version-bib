@@ -33,8 +33,13 @@ export const COUNTRY_CODES = {
 // Cache pour éviter les appels répétés
 let cachedLocation = null;
 
+// URL du Cloudflare Worker (à configurer après déploiement)
+// Remplacez par l'URL de votre Worker : https://majay-geolocation.workers.dev
+const CLOUDFLARE_WORKER_URL = null; // null = utiliser API tierce par défaut
+
 /**
  * Détecte la localisation de l'utilisateur via son IP
+ * Priorité : Cloudflare Worker > API tierce > Fallback
  * @returns {Promise<Object>} Informations de géolocalisation
  */
 export async function detectUserLocation() {
@@ -58,8 +63,35 @@ export async function detectUserLocation() {
         }
     }
 
+    // MÉTHODE 1 : Essayer Cloudflare Worker d'abord (si configuré)
+    if (CLOUDFLARE_WORKER_URL) {
+        try {
+            console.log('🌐 Détection via Cloudflare Worker...');
+            const response = await fetch(CLOUDFLARE_WORKER_URL, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const location = await response.json();
+                
+                // Sauvegarder dans le cache
+                cachedLocation = location;
+                localStorage.setItem('user_location', JSON.stringify(location));
+                
+                console.log('✅ Localisation détectée via Cloudflare:', location.country);
+                return location;
+            }
+        } catch (error) {
+            console.warn('⚠️ Cloudflare Worker non disponible, fallback sur API tierce:', error.message);
+        }
+    }
+
+    // MÉTHODE 2 : Fallback sur API tierce (ipapi.co)
     try {
-        // Utiliser l'API ipapi.co (gratuite, 1000 requêtes/jour)
+        console.log('🌐 Détection via API tierce (ipapi.co)...');
         const response = await fetch('https://ipapi.co/json/', {
             timeout: 5000
         });
@@ -88,9 +120,10 @@ export async function detectUserLocation() {
         cachedLocation = location;
         localStorage.setItem('user_location', JSON.stringify(location));
 
+        console.log('✅ Localisation détectée via API tierce:', location.country);
         return location;
     } catch (error) {
-        console.error('Erreur détection localisation:', error);
+        console.error('❌ Erreur détection localisation:', error);
 
         // Fallback: retourner Sénégal par défaut
         const fallbackLocation = {
