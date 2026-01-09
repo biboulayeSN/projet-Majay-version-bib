@@ -1,0 +1,19 @@
+# Cloudflare Pages / Netlify Redirects
+# Documentation: https://developers.cloudflare.com/pages/configuration/redirects/
+
+# Redirection admin vers sous-domaine
+/admin/*  https://admin.majay.com/:splat  301
+
+# Force HTTPS
+http://majay.com/*  https://majay.com/:splat  301
+http://www.majay.com/*  https://www.majay.com/:splat  301
+
+# API endpoints vers workers
+/api/location  https://majay-geolocation.workers.dev  200
+/api/rate-limit/*  https://majay-rate-limiter.workers.dev/:splat  200
+
+# Boutiques dynamiques (si pas géré par Worker)
+/:slug  /catalogue.html?shop=:slug  200
+
+# Page par défaut pour 404
+/*  /index.html  404
